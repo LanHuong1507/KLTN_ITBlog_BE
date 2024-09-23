@@ -148,17 +148,23 @@ class CommentController {
                 return res.status(404).json({ message: 'Không tìm thấy bình luận' });
             }
 
-            // Check if the user is the comment owner or an admin
-            if (comment.user_id !== req.user.userId && req.user.role != "admin") {
+            // Kiểm tra xem người dùng có phải là chủ bình luận hoặc admin không
+            if (comment.user_id !== req.user.userId && req.user.role !== "admin") {
                 return res.status(403).json({ message: 'Bạn không có quyền xóa bình luận này' });
             }
 
+            // Xóa tất cả các thông báo liên quan đến bình luận
+            await Notification.destroy({ where: { comment_id: id } });
+
+            // Xóa bình luận
             await comment.destroy();
+
             res.status(200).json({ message: 'Xóa bình luận thành công' });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi khi xóa bình luận', error });
         }
     }
+
 }
 
 module.exports = new CommentController();

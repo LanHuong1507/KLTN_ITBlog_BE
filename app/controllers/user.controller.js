@@ -2,6 +2,7 @@ const { Op } = require("sequelize");
 const User = require("../models/user.model.js");
 const Follower = require("../models/follower.model.js");
 const createUploader = require('../middlewares/upload.middleware.js');
+const bcrypt = require("bcryptjs");
 
 const upload = createUploader();
 
@@ -21,7 +22,8 @@ class UserController {
       const searchCondition = {
         [Op.or]: [
           { username: { [Op.like]: `%${search}%` } },
-          { email: { [Op.like]: `%${search}%` } }
+          { email: { [Op.like]: `%${search}%` } },
+          { fullname: { [Op.like]: `%${search}%` } }
         ]
       };
 
@@ -110,7 +112,7 @@ class UserController {
     try {
       const userId = req.user.userId; // id lấy từ token đã xác thực
 
-      const { fullname, bio } = req.body;
+      const { fullname, bio, password } = req.body;
 
       if (!fullname) return res.status(400).json({ message: "Họ tên là bắt buộc" });
 
@@ -124,6 +126,14 @@ class UserController {
       } else {
         await User.update(
           { fullname, bio },
+          { where: { user_id: userId } }
+        );
+      }
+
+      if(password){
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.update(
+          { password_hash: hashedPassword },
           { where: { user_id: userId } }
         );
       }
@@ -159,12 +169,21 @@ class UserController {
         return res.status(403).json({ message: "Không thể khóa quản trị viên" });
       }
 
-      await User.update(
-        { role: 'blocked' },
-        { where: { user_id: id } }
-      );
+      if (user.role != 'blocked') {
+        await User.update(
+          { role: 'blocked' },
+          { where: { user_id: id } }
+        );
+        return res.status(200).json({ message: "Người dùng đã bị khóa" });
+      }else{
+        await User.update(
+          { role: 'user' },
+          { where: { user_id: id } }
+        );
 
-      res.status(200).json({ message: "Người dùng đã bị khóa" });
+        return res.status(200).json({ message: "Đã mở khóa cho người dùng" });
+      }
+
     } catch (error) {
       res.status(500).json({ message: "Lỗi khi khóa người dùng", error });
     }

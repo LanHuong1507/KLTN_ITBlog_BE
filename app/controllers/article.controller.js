@@ -1,5 +1,8 @@
 const Article = require('../models/article.model.js');
 const ArticleView = require('../models/article_view.model.js');
+const User = require('../models/user.model.js');
+const Comment = require('../models/comment.model.js');
+const Notification = require('../models/notification.model.js');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
@@ -11,8 +14,6 @@ class ArticleController {
         const { search, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const { role, userId } = req.user; // Lấy role và userId từ req.user
-
-        console.log(role, userId)
     
         try {
             // Build where clause for search functionality
@@ -26,8 +27,67 @@ class ArticleController {
                     ...whereClause,
                     user_id: userId // Chỉ lấy các bài viết của user hiện tại
                 };
+            } else {
+                if (search) {
+                    whereClause = {
+                        [Op.or]: [
+                            { title: { [Op.like]: `%${search}%` } },
+                            { '$user.username$': { [Op.like]: `%${search}%` } }
+                        ]
+                    };
+                }
             }
     
+            // Fetch articles with pagination, order, and include user info & views
+            const { rows, count } = await Article.findAndCountAll({
+                where: whereClause,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['article_id', 'DESC']], // Order by article_id in descending order
+                include: [
+                    {
+                        model: User,
+                        as: 'user', // Alias defined in Article model
+                        attributes: ['username'] // Include only the 'username' field
+                    },
+                    {
+                        model: ArticleView,
+                        as: 'views', // Alias defined in relationship
+                        attributes: ['view_count'], // Lấy lượt xem
+                    }
+                ]
+            });
+    
+            const totalPages = Math.ceil(count / limit);
+    
+            // Send response in the desired format
+            res.status(200).json({
+                totalArticles: count, // Total number of articles
+                currentPage: parseInt(page), // Current page
+                totalPages, // Total pages
+                articles: rows, // Array of articles with user info and view count
+            });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
+        }
+    }
+
+    // [GET] /articles/list
+    async list(req, res) {
+        const { search, page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+        try {
+            // Build where clause for search functionality
+            let whereClause = search
+                ? { title: { [Op.like]: `%${search}%` } }
+                : {};
+    
+            whereClause = {
+                ...whereClause,
+                privacy: 'public' ,// Chỉ lấy các bài viết được duyệt
+                is_draft: false  // Chỉ lấy các bài viết duoc duyệt không phải bản nháp
+            };
+
             // Fetch articles with pagination and order
             const { rows, count } = await Article.findAndCountAll({
                 where: whereClause,
@@ -49,6 +109,7 @@ class ArticleController {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
         }
     }
+    
 
     // [GET] /articles/:id
     async show(req, res) {
@@ -86,6 +147,31 @@ class ArticleController {
             res.status(200).json({
                 article,
                 view_count: articleView.view_count
+            });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi lấy bài viết", error });
+        }
+    }
+
+    // [GET] /articles/:id/detail
+    async detail(req, res) {
+        const { id } = req.params;
+    
+        try {
+            // Tìm bài viết dựa trên article_id 
+            const article = await Article.findOne({
+                where: {
+                    article_id: id
+                }
+            });
+    
+            if (!article) {
+                return res.status(404).json({ message: "Không tìm thấy bài viết" });
+            }
+    
+            // Trả về thông tin bài viết và số lượt xem
+            return res.status(200).json({
+                article            
             });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi lấy bài viết", error });
@@ -131,6 +217,24 @@ class ArticleController {
         }
     }
 
+    // [POST] /articles/uploadImage
+    async uploadImage(req, res) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: 'Vui lòng chọn ảnh' });
+            }
+
+            const image_url = req.file.path.replace(/\\/g, '/'); // Normalize path
+
+            return res.status(200).json({
+                uploaded: true,
+                url: `http://127.0.0.1:3001/${image_url}` // Đường dẫn tới file đã tải lên
+            });
+        } catch (error) {
+            res.status(500).json({ message: 'Error uploading image', error });
+        }
+    }
+
     // [PUT] /articles/:id/public
     async public(req, res) {
         const { id } = req.params;
@@ -153,7 +257,7 @@ class ArticleController {
     // [PUT] /articles/:id
     async update(req, res) {
         const { id } = req.params;
-        const { title, content, tags, slug } = req.body;
+        const { title, content, tags, slug, is_draft } = req.body;
         const image_url = req.file; // Handle image upload
 
         try {
@@ -185,7 +289,7 @@ class ArticleController {
                 imageUrl = image_url.path.replace(/\\/g, '/');
             }
 
-            await article.update({ title, content, tags, is_draft: 0, slug, image_url: imageUrl });
+            await article.update({ title, content, tags, is_draft: 0, slug, is_draft, image_url: imageUrl });
 
             res.status(200).json({ message: "Cập nhật bài viết thành công", article });
         } catch (error) {
@@ -256,6 +360,15 @@ class ArticleController {
                     fs.unlinkSync(imagePath);
                 }
             }
+
+            // Xóa tất cả các thông báo liên quan đến bài viết
+            await Notification.destroy({ where: { article_id: id } });
+
+            // Xóa tất cả các bình luận liên quan đến bài viết
+            await Comment.destroy({ where: { article_id: id } });
+
+            // Xóa tất cả các lượt xem liên quan đến bài viết
+            await ArticleView.destroy({ where: { article_id: id } });
 
             await article.destroy();
 
