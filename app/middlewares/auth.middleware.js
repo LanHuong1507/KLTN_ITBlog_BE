@@ -25,7 +25,7 @@ function requireAdmin(req, res, next) {
 
 // Middleware để kiểm tra vai trò admin
 function requireCustomer(req, res, next) {
-  if (req.user.role !== 'customer') {
+  if (req.user.role !== 'user') {
     return res.status(403).json({ message: 'Vui lòng đăng nhập tài khoản "Người dùng" để thực hiện.' });
   }
   next();

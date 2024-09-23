@@ -1,5 +1,7 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db.config.js");
+const User = require('./user.model.js');  
+const ArticleView = require('./article_view.model.js');  
 
 const Article = sequelize.define("article", {
     article_id: {
@@ -47,3 +49,6 @@ const Article = sequelize.define("article", {
 });
 
 module.exports = Article;
+
+Article.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Article.hasMany(ArticleView, { foreignKey: 'article_id', as: 'views' });

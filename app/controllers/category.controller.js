@@ -74,6 +74,12 @@ class CategoryController {
 
       if (!image_url) return res.status(400).json({ message: "Vui lòng chọn ảnh danh mục" });
 
+      // Kiểm tra xem slug có bị trùng hay không
+      const existingCategory = await Category.findOne({ where: { slug } });
+      if (existingCategory) {
+          return res.status(400).json({ message: "Đường dẫn đã tồn tại, vui lòng chọn đường dẫn khác" });
+      }
+
       image_url = image_url.path.replace(/\\/g, '/');
 
       const newCategory = await Category.create({
@@ -99,6 +105,13 @@ class CategoryController {
 
       if (!category) {
         return res.status(404).json({ message: "Không tìm thấy danh mục" });
+      }
+
+      if (slug && slug !== category.slug) {
+        const existingSlug = await Category.findOne({ where: { slug } });
+        if (existingSlug) {
+            return res.status(400).json({ message: "Đường dẫn đã tồn tại" });
+        }
       }
 
       let imageUrl = category.image_url;
