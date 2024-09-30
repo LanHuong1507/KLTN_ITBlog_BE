@@ -326,7 +326,10 @@ class ArticleController {
                 imageUrl = image_url.path.replace(/\\/g, '/');
             }
 
-            await article.update({ title, content, tags, is_draft: 0, slug, is_draft, image_url: imageUrl });
+            await article.update({ 
+                title, content, tags, is_draft: 0, slug, is_draft, image_url: imageUrl, 
+                privacy: req.user.role == "admin" ? "public" : "private" 
+            });
 
             await ArticleCategory.destroy({ where: {article_id: id}});
 
