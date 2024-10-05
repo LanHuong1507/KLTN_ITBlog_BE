@@ -74,7 +74,7 @@ class ArticleController {
         }
     }
 
-    // [GET] /articles/list
+    // [GET] /articles/list/newsfeed
     async list(req, res) {
         const { search, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
@@ -86,7 +86,8 @@ class ArticleController {
 
             whereClause = {
                 ...whereClause,
-                privacy: 'public' // Chỉ lấy các bài viết được duyệt
+                privacy: 'public',
+                is_draft: false // Chỉ lấy các bài viết được duyệt và 0 phải nháp
             };
 
             // Fetch articles with pagination and order
@@ -278,7 +279,7 @@ class ArticleController {
                 return res.status(404).json({ message: "Không tìm thấy bài viết" });
             }
 
-            await article.update({ privacy: "public" });
+            await article.update({ privacy: "public", is_draft:0 });
 
             res.status(200).json({ message: "Đã duyệt bài viết thành công", article });
         } catch (error) {
@@ -291,6 +292,7 @@ class ArticleController {
         try {
             const { id } = req.params;
             const { title, content, tags, slug, is_draft, categories } = req.body;
+
             const image_url = req.file; // Handle image upload
 
             const article = await Article.findOne({ where: { article_id: id } });
@@ -326,10 +328,15 @@ class ArticleController {
                 imageUrl = image_url.path.replace(/\\/g, '/');
             }
 
-            await article.update({ 
-                title, content, tags, is_draft: 0, slug, is_draft, image_url: imageUrl, 
-                privacy: req.user.role == "admin" ? "public" : "private" 
-            });
+            if(is_draft == 1){
+                await article.update({ title, content, tags, slug, is_draft, 
+                    image_url: imageUrl, 
+                    privacy: 'private' });
+            }else{
+                await article.update({ title, content, tags, slug, is_draft, 
+                    image_url: imageUrl, 
+                    privacy: req.user.role == "admin" ? "public" : "private" });
+            }
 
             await ArticleCategory.destroy({ where: {article_id: id}});
 
@@ -381,7 +388,7 @@ class ArticleController {
                 imageUrl = image_url.path.replace(/\\/g, '/');
             }
 
-            await article.update({ title, content, tags, is_draft: 1, slug, image_url: imageUrl });
+            await article.update({ title, content, tags, is_draft: 1, slug, image_url: imageUrl, privacy: "private" });
 
             res.status(200).json({ message: "Lưu bản nháp bài viết thành công", article });
         } catch (error) {
@@ -400,7 +407,7 @@ class ArticleController {
                 return res.status(404).json({ message: "Không tìm thấy bài viết" });
             }
 
-            if ((req.user.role != "admin") && (req.user.userId != article.user_id)) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
+            if (req.user.userId != article.user_id) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
 
             // Delete the image file if it exists
             if (article.image_url) {
@@ -424,6 +431,100 @@ class ArticleController {
             res.status(200).json({ message: "Xóa bài viết thành công" });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi xóa bài viết", error });
+        }
+    }
+
+    // [PATCH] /articles/:id/reject
+    async reject(req, res) {
+        const { id } = req.params;
+        const { reason } = req.body; // Lấy lý do từ chối từ body request
+        
+        try {
+            const article = await Article.findOne({ where: { article_id: id } });
+
+            if (!article) {
+                return res.status(404).json({ message: "Không tìm thấy bài viết" });
+            }
+
+            // Kiểm tra nếu bài viết đã ở trạng thái public
+            if (article.privacy === "public") {
+                return res.status(400).json({ message: "Bài viết đã được duyệt, không thể từ chối" });
+            }
+
+            // Cập nhật slug và tiêu đề bài viết khi từ chối
+            const updatedTitle = `[Bị từ chối vì ${reason}] ${article.title}`;
+            await article.update({
+                slug: "[rejected]",
+                title: updatedTitle,
+                is_draft: 1
+            });
+
+            res.status(200).json({ message: "Bài viết đã bị từ chối", article });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi từ chối bài viết", error });
+        }
+    }
+    // [GET] /articles/list/rejected
+    async listRejected(req, res) {
+        const { search, page = 1, limit = 10 } = req.query;
+        const { role, userId } = req.user; // Lấy user_id từ thông tin đăng nhập của user (giả sử user đã được xác thực)
+        const offset = (page - 1) * limit;
+
+        try {
+            // Build where clause for search functionality
+            let whereClause = search
+                ? { title: { [Op.like]: `%${search}%` } }
+                : {};
+
+            whereClause = {
+                ...whereClause,
+                slug: '[rejected]', // Chỉ lấy các bài viết bị từ chối
+                user_id: userId // Lọc theo user_id
+            };
+
+            // Fetch rejected articles with pagination and order
+            const { rows, count } = await Article.findAndCountAll({
+                where: whereClause,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['article_id', 'DESC']], // Order by article_id in descending order
+            });
+
+            const totalPages = Math.ceil(count / limit);
+
+            // Send response in the desired format
+            res.status(200).json({
+                totalArticles: count, // Total number of rejected articles
+                currentPage: parseInt(page), // Current page
+                totalPages, // Total pages
+                articles: rows, // Array of rejected articles
+            });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi truy vấn bài viết bị từ chối", error });
+        }
+    }
+    // [GET] /articles/list/rejected/:id
+    async detailRejected(req, res) {
+        const { id } = req.params;
+        try {
+            // Tìm bài viết bị từ chối dựa trên id 
+            const article = await Article.findOne({
+                where: {
+                    article_id: id,
+                }
+            });
+            if (!article) {
+                return res.status(404).json({ message: "Không tìm thấy bài viết" });
+            }
+
+            if (req.user.userId != article.user_id) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
+
+            // Trả về thông tin bài viết và danh mục
+            return res.status(200).json({
+                article
+            });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi lấy bài viết bị từ chối", error });
         }
     }
 }

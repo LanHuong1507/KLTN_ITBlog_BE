@@ -112,7 +112,7 @@ class UserController {
     try {
       const userId = req.user.userId; // id lấy từ token đã xác thực
 
-      const { fullname, bio, password } = req.body;
+      const { fullname, bio } = req.body;
 
       if (!fullname) return res.status(400).json({ message: "Họ tên là bắt buộc" });
 
@@ -126,14 +126,6 @@ class UserController {
       } else {
         await User.update(
           { fullname, bio },
-          { where: { user_id: userId } }
-        );
-      }
-
-      if(password){
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await User.update(
-          { password_hash: hashedPassword },
           { where: { user_id: userId } }
         );
       }
@@ -152,6 +144,41 @@ class UserController {
       res.status(200).json({ message: "Cập nhật thông tin thành công", user: updatedUser });
     } catch (error) {
       res.status(500).json({ message: "Lỗi khi cập nhật thông tin", error });
+    }
+  }
+
+  async changePassword(req, res){
+    try{
+      const userId = req.user.userId; // id lấy từ token đã xác thực
+
+      const { password, newPassword, confirmPassword } = req.body;
+
+      if(!password || !newPassword || !confirmPassword) return res.status(404).json({ message: "Vui lòng nhập đủ thông tin đổi mật khẩu" });
+
+      // Tìm user theo id user
+      const user = await User.findOne({
+          where: {
+            user_id: userId
+          }
+      });
+
+      // Kiểm tra mật khẩu
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      if (!isPasswordValid) {
+          return res.status(400).json({ message: "Mật khẩu hiện tại không đúng!" });
+      }
+
+      if(newPassword !== confirmPassword) return res.status(400).json({ message: "Nhập lại mật khẩu không trùng khớp!" });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await User.update(
+        { password_hash: hashedPassword },
+        { where: { user_id: userId } }
+      );
+
+      return res.status(200).json({ message: "Đổi mật khẩu thành công" });
+    } catch (error) {
+      res.status(500).json({ message: "Lỗi khi đổi mật khẩu", error });
     }
   }
 
