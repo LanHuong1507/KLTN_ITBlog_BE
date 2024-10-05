@@ -7,12 +7,31 @@ const upload = require('../middlewares/upload.middleware.js')('uploads/articles'
 
 router.delete('/:id', authenticateToken, articleController.delete);
 router.get('/:idOrSlug', articleController.show);
-router.put('/:id', authenticateToken, upload.single('image_url'), articleController.update);
+router.put('/:id', authenticateToken, (req, res, next) => {
+    upload.single('image_url')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ message: err.message }); // Xử lý lỗi từ multer (ví dụ định dạng file sai)
+        }
+        next();
+    });
+}, articleController.update);
 router.put('/:id/draft', authenticateToken, upload.single('image_url'), articleController.draft);
 router.patch('/:id/public', authenticateToken, requireAdmin, articleController.public);
 router.post('/uploadImage', upload.single('upload'), articleController.uploadImage);
-router.post('/', authenticateToken, upload.single('image_url'), articleController.add);
+router.post('/', authenticateToken, (req, res, next) => {
+    upload.single('image_url')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ message: err.message }); // Xử lý lỗi từ multer (ví dụ định dạng file sai)
+        }
+        next();
+    });
+}, articleController.add);
 router.get('/:id/detail', authenticateToken, requireAdmin, articleController.detail);
 router.get('/', authenticateToken, articleController.index);
 router.get('/list/newsfeed', articleController.list);
+
+router.patch('/:id/reject', authenticateToken, requireAdmin, articleController.reject);
+router.get('/list/rejected', authenticateToken, articleController.listRejected);
+router.get('/list/rejected/:id', authenticateToken, articleController.detailRejected);
+
 module.exports = router;
