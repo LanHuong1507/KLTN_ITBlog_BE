@@ -74,7 +74,7 @@ class ArticleController {
         }
     }
 
-    // [GET] /articles/list/newsfeed
+    // [GET] /articles/list
     async list(req, res) {
         const { search, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
@@ -329,9 +329,7 @@ class ArticleController {
             }
 
             if(is_draft == 1){
-                await article.update({ title, content, tags, slug, is_draft, 
-                    image_url: imageUrl, 
-                    privacy: 'private' });
+                await article.update({ title, content, tags, slug, is_draft, image_url: imageUrl, privacy: 'private' });
             }else{
                 await article.update({ title, content, tags, slug, is_draft, 
                     image_url: imageUrl, 
