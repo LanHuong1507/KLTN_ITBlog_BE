@@ -101,7 +101,12 @@ class UserController {
       if (!user) {
         return res.status(404).json({ message: "Không tìm thấy người dùng" });
       }
-      res.status(200).json(user);
+
+      const followerCount = await Follower.count({
+        where: { followed_user_id: user.user_id }
+      });
+
+      return res.status(200).json({user, followerCount});
     } catch (error) {
       res.status(500).json({ message: "Lỗi khi lấy thông tin hồ sơ", error });
     }
