@@ -26,9 +26,8 @@ router.post('/', authenticateToken, (req, res, next) => {
         next();
     });
 }, articleController.add);
-router.get('/:id/detail', authenticateToken, requireAdmin, articleController.detail);
+router.get('/:id/detail', authenticateToken, articleController.detail);
 router.get('/', authenticateToken, articleController.index);
-router.get('/list/newsfeed', articleController.list);
 
 router.patch('/:id/reject', authenticateToken, requireAdmin, articleController.reject);
 router.get('/list/rejected', authenticateToken, articleController.listRejected);

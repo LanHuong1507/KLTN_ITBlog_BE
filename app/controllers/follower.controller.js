@@ -54,14 +54,16 @@ const FollowerController = {
     // [POST] followers/:id
     async add(req, res) {
         const follower_user_id = req.user.userId; 
-        const followed_user_id = req.params.id; 
+        let followed_user_id = req.params.id; 
 
         try {
             // Kiểm tra xem người dùng có tồn tại không
-            const followedUser = await User.findOne({ where: { user_id: followed_user_id } });
+            const followedUser = await User.findOne({ where: { username: followed_user_id } });
             if (!followedUser) {
                 return res.status(404).json({ message: "Người dùng không tồn tại" });
             }
+
+            followed_user_id = followedUser.user_id;
 
             // Kiểm tra xem đã follow chưa
             const existingFollower = await Follower.findOne({
