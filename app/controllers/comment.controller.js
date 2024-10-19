@@ -61,7 +61,7 @@ class CommentController {
             });
 
             if (comments.length === 0) {
-                return res.status(404).json({ message: 'Không tìm thấy bình luận cho bài viết này' });
+                return res.status(200).json({ message: 'Lấy bình luận thành công', comments: [] });
             }
 
             res.status(200).json({ message: 'Lấy bình luận thành công', comments });

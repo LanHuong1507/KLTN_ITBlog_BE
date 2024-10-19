@@ -1,6 +1,7 @@
 const sequelize = require('../config/db.config.js');
 const Article = require('../models/article.model.js');
 const ArticleView = require('../models/article_view.model');
+const ArticleCategory = require('../models/article_category.model.js');
 const ArticleLike = require('../models/article_like.model');
 const Comment = require('../models/comment.model');
 const User = require('../models/user.model');
@@ -34,7 +35,7 @@ class OtherController {
                     {
                         model: User,
                         as: 'user', // Alias defined in Article model
-                        attributes: ['fullname'] // Include only the 'username' field
+                        attributes: ['fullname', 'username'] // Include only the 'username' field
                     },
                     {
                         model: ArticleView,
@@ -52,6 +53,137 @@ class OtherController {
                 currentPage: parseInt(page), // Current page
                 totalPages, // Total pages
                 articles: rows, // Array of articles
+            });
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
+        }
+    }
+
+    async topMonthView(req, res) {
+        try {
+            const { page = 1, limit = 6 } = req.query; // Lấy page và limit từ query, với mặc định là 1 và 10
+            const offset = (page - 1) * limit;
+    
+            // Truy vấn lấy các bài viết theo số lượt xem trong tháng hiện tại, áp dụng phân trang
+            const query = `
+                SELECT 
+                    a.article_id, 
+                    a.title, 
+                    a.slug, 
+                    a.image_url, 
+                    a.user_id, 
+                    a.content,
+                    a.createdAt, 
+                    u.username, 
+                    u.fullname, 
+                    COALESCE(SUM(av.view_count), 0) AS total_views
+                FROM articles AS a
+                LEFT JOIN article_views AS av ON a.article_id = av.article_id
+                LEFT JOIN users AS u ON a.user_id = u.user_id  
+                WHERE YEAR(a.createdAt) = YEAR(CURRENT_DATE)  
+                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE)  
+                GROUP BY 
+                    a.article_id, 
+                    a.title, 
+                    a.slug, 
+                    a.image_url, 
+                    a.user_id, 
+                    a.createdAt,
+                    u.username 
+                ORDER BY total_views DESC
+                LIMIT :limit OFFSET :offset;
+            `;
+    
+            // Truy vấn đếm tổng số bài viết trong tháng hiện tại
+            const countQuery = `
+                SELECT COUNT(DISTINCT a.article_id) AS totalArticles
+                FROM articles AS a
+                WHERE YEAR(a.createdAt) = YEAR(CURRENT_DATE)
+                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE);
+            `;
+    
+            // Thực thi các truy vấn
+            const articles = await sequelize.query(query, {
+                type: sequelize.QueryTypes.SELECT,
+                replacements: { limit: parseInt(limit), offset: parseInt(offset) },
+            });
+    
+            const countResult = await sequelize.query(countQuery, {
+                type: sequelize.QueryTypes.SELECT,
+            });
+    
+            const totalArticles = countResult[0].totalArticles;
+            const totalPages = Math.ceil(totalArticles / limit);
+    
+            // Trả về kết quả
+            res.status(200).json({
+                totalArticles,
+                currentPage: parseInt(page),
+                totalPages,
+                articles,
+            });
+        } catch (error) {
+            res.status(500).json({
+                message: 'Lỗi khi lấy bài viết có lượt xem cao nhất',
+                error
+            });
+        }
+    }
+    
+
+    async getArticlesByUsername(req, res) {
+        const { search, page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+        const { username } = req.params;
+
+        try {
+            const user = await User.findOne({
+                where: {
+                    username
+                }
+            });
+
+            if(!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+            // Build where clause for search functionality
+            let whereClause = search
+                ? { title: { [Op.like]: `%${search}%` } }
+                : {};
+            
+            whereClause = {
+                ...whereClause,
+                privacy: "public",
+                user_id: user.user_id 
+            };
+
+            // Fetch articles with pagination, order, and include user info & views
+            const { rows, count } = await Article.findAndCountAll({
+                where: whereClause,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['article_id', 'DESC']], // Order by article_id in descending order
+                include: [
+                    {
+                        model: User,
+                        as: 'user', // Alias defined in Article model
+                        attributes: ['username'] // Include only the 'username' field
+                    },
+                    {
+                        model: ArticleView,
+                        as: 'views', // Alias defined in relationship
+                        attributes: ['view_count'], // Lấy lượt xem
+                    }
+                ]
+            });
+
+            const totalPages = Math.ceil(count / limit);
+
+            // Send response in the desired format
+            res.status(200).json({
+                totalArticles: count, // Total number of articles
+                currentPage: parseInt(page), // Current page
+                totalPages, // Total pages
+                articles: rows, // Array of articles with user info and view count
             });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
@@ -317,6 +449,97 @@ class OtherController {
             });
         }
     }
+
+    async topRelated(req, res) {
+        try {
+            const { categoryIds, tags } = req.body;
+            const { id } = req.params;
+
+            // Chuyển danh sách categoryIds và tags thành chuỗi để sử dụng trong SQL
+            const categoryIdsList = categoryIds.join(','); // e.g., "1,2,3"
+            const tagsConditions = tags.map(tag => `tags LIKE '%${tag}%'`).join(' OR '); // e.g., "tags LIKE '%tag1%' OR tags LIKE '%tag2%'"
+
+            // Truy vấn lấy bài viết cho các category
+            const categoryQuery = `
+                SELECT a.*, u.username, u.fullname, c.name AS category_name, c.slug AS category_slug
+                FROM articles a
+                JOIN article_categories ac ON a.article_id = ac.article_id
+                JOIN users u ON a.user_id = u.user_id 
+                JOIN categories c ON ac.category_id = c.category_id
+                WHERE ac.category_id IN (${categoryIdsList})
+                AND a.privacy = 'public'
+                AND a.is_draft = false
+                AND a.article_id <> ${id}  
+                ORDER BY a.createdAt DESC
+                LIMIT 3;
+            `;
+
+
+            // Truy vấn lấy bài viết dựa trên tags
+            const tagQuery = `
+                SELECT a.*, u.username, u.fullname, c.name AS category_name, c.slug AS category_slug
+                FROM articles a
+                JOIN article_categories ac ON a.article_id = ac.article_id
+                JOIN users u ON a.user_id = u.user_id 
+                JOIN categories c ON ac.category_id = c.category_id
+                WHERE (${tagsConditions})
+                AND a.privacy = 'public'
+                AND a.is_draft = false
+                AND a.article_id <> ${id} 
+                ORDER BY a.createdAt DESC
+                LIMIT 3;
+            `;
+
+            // Thực hiện các truy vấn SQL
+            const [categoryArticles] = await sequelize.query(categoryQuery);
+            const [tagArticles] = await sequelize.query(tagQuery);
+
+            // Kết hợp tất cả bài viết từ các chuyên mục và từ tags
+            const allArticles = categoryArticles.concat(tagArticles);
+
+            // Trả về kết quả
+            res.status(200).json({
+                message: 'Bài viết liên quan',
+                articles: allArticles
+            });
+        } catch (error) {
+            console.error('Lỗi khi lấy bài viết liên quan:', error);
+            res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết liên quan' });
+        }
+    }    
+
+    async topPopularToday(req, res) {
+        try {
+            const query = `
+                SELECT a.*, u.username, u.avatar_url, u.fullname, c.name AS category_name, c.slug AS category_slug, av.view_count
+                FROM articles a
+                JOIN article_views av ON a.article_id = av.article_id
+                JOIN users u ON a.user_id = u.user_id
+                JOIN article_categories ac ON a.article_id = ac.article_id
+                JOIN categories c ON ac.category_id = c.category_id
+                WHERE a.privacy = 'public'
+                  AND a.is_draft = false
+                  AND DATE(a.createdAt) <= CURDATE()  -- Lấy các bài viết từ hôm nay trở về trước
+                ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
+                LIMIT 1;
+            `;
+    
+            const [results] = await sequelize.query(query);
+    
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Không tìm thấy bài viết phù hợp.' });
+            }
+    
+            // Chỉ lấy bài viết đầu tiên do có `LIMIT 1` trong query
+            const article = results[0];
+    
+            return res.status(200).json({ article });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết.', error });
+        }
+    }
+
 }
 
 module.exports = new OtherController();

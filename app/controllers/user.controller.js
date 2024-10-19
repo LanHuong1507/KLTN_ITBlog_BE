@@ -220,6 +220,37 @@ class UserController {
       res.status(500).json({ message: "Lỗi khi khóa người dùng", error });
     }
   }
+  // [PATCH] /users/:id/toggleAdmin
+  async toggleAdmin(req, res) {
+    try {
+      const { id } = req.params;
+      const user = await User.findByPk(id);
+
+      if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      }
+      //Kiểm tra người dùng bị khóa
+      if(user.role == "blocked") return res.status(400).json({ message: "Tài khoản hiện đang bị cấm khỏi hệ thống" });
+
+      // Nếu user đang là 'admin', thì đổi role thành 'user', ngược lại thì đổi thành 'admin'
+      if (user.role === 'admin') {
+        await User.update(
+          { role: 'user' },
+          { where: { user_id: id } }
+        );
+        return res.status(200).json({ message: "Đã thay đổi role thành user" });
+      } else {
+        await User.update(
+          { role: 'admin' },
+          { where: { user_id: id } }
+        );
+        return res.status(200).json({ message: "Đã thay đổi role thành admin" });
+      }
+
+    } catch (error) {
+      res.status(500).json({ message: "Lỗi khi thay đổi role người dùng", error });
+    }
+  }
 }
 
 module.exports = new UserController();
