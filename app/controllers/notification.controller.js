@@ -57,4 +57,37 @@ async function index(req, res) {
     }
 }
 
-module.exports = { index };
+// [DELETE] /notifications/:id - Xóa một thông báo theo ID
+async function deleteNotificationById(req, res) {
+    const { id } = req.params;
+
+    try {
+        const deletedNotification = await Notification.destroy({ where: { notification_id: id } });
+
+        if (!deletedNotification) {
+            return res.status(404).json({ message: "Thông báo không tồn tại" });
+        }
+
+        return res.status(200).json({ message: "Xóa thông báo thành công" });
+    } catch (error) {
+        return res.status(500).json({ message: "Lỗi khi xóa thông báo", error });
+    }
+}
+
+// [DELETE] /notifications - Xóa tất cả thông báo của một người dùng
+async function deleteAllNotificationsByUser(req, res) {
+    const user_id = req.user.userId; // Lấy userId từ token
+
+    try {
+        const deletedCount = await Notification.destroy({ where: { user_id: user_id } });
+
+        if (deletedCount === 0) {
+            return res.status(404).json({ message: "Không có thông báo nào để xóa" });
+        }
+
+        return res.status(200).json({ message: `Đã xóa ${deletedCount} thông báo` });
+    } catch (error) {
+        return res.status(500).json({ message: "Lỗi khi xóa tất cả thông báo", error });
+    }
+}
+module.exports = { index, deleteAllNotificationsByUser, deleteNotificationById };

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ortherController = require('../controllers/other.controller.js');
+const { authenticateToken } = require('../middlewares/auth.middleware.js');
 
 router.get('/list_articles', ortherController.listArticles);
 router.get('/top_trendings', ortherController.topTrending);
@@ -14,5 +15,8 @@ router.get('/articles_username/:username', ortherController.getArticlesByUsernam
 router.get('/top_month', ortherController.topMonthView);
 router.post('/top_related/:id', ortherController.topRelated);
 router.get('/popular_today', ortherController.topPopularToday);
+router.get('/articles_following', authenticateToken, ortherController.getArticlesFollowing);
+router.get('/articles_categories', ortherController.getArticlesByCategorySlug);
+
 
 module.exports = router;

@@ -27,13 +27,15 @@ class ArticleController {
             if (role === 'user') {
                 whereClause = {
                     ...whereClause,
-                    user_id: userId, // Chỉ lấy các bài viết của user hiện tại
-                    slug: { [Op.not]: '[rejected]' }
+                    user_id: userId // Chỉ lấy các bài viết của user hiện tại
                 };
             } else {
                 whereClause = {
                     ...whereClause,
-                    slug: { [Op.not]: '[rejected]' }
+                    [Op.or]: [
+                        { is_draft: false }, // Bài viết không phải là bản nháp
+                        { user_id: userId } // Bài nháp của user hiện tại
+                    ]
                 };
                 if (search) {
                     whereClause = {
@@ -264,7 +266,7 @@ class ArticleController {
                 content,
                 tags,
                 is_draft,
-                privacy: req.user.role == "admin" ? "public" : "private",
+                privacy: req.user.role === "admin" ? (parseInt(is_draft) === 1 ? "private" : "public") : "private",
                 slug,
                 image_url
             });
