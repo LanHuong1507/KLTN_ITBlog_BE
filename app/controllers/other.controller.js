@@ -61,10 +61,10 @@ class OtherController {
 
     async topMonthView(req, res) {
         try {
-            const { page = 1, limit = 6 } = req.query; // Lấy page và limit từ query, với mặc định là 1 và 10
+            const { page = 1, limit = 6 } = req.query; // Lấy page và limit từ query, với mặc định là 1 và 6
             const offset = (page - 1) * limit;
-    
-            // Truy vấn lấy các bài viết theo số lượt xem trong tháng hiện tại, áp dụng phân trang
+
+            // Truy vấn lấy các bài viết theo số lượt xem trong tháng hiện tại, áp dụng phân trang và lọc privacy: 'public'
             const query = `
                 SELECT 
                     a.article_id, 
@@ -80,8 +80,9 @@ class OtherController {
                 FROM articles AS a
                 LEFT JOIN article_views AS av ON a.article_id = av.article_id
                 LEFT JOIN users AS u ON a.user_id = u.user_id  
-                WHERE YEAR(a.createdAt) = YEAR(CURRENT_DATE)  
-                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE)  
+                WHERE YEAR(a.createdAt) = YEAR(CURRENT_DATE)
+                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE)
+                    AND a.privacy = 'public'
                 GROUP BY 
                     a.article_id, 
                     a.title, 
@@ -93,28 +94,29 @@ class OtherController {
                 ORDER BY total_views DESC
                 LIMIT :limit OFFSET :offset;
             `;
-    
-            // Truy vấn đếm tổng số bài viết trong tháng hiện tại
+
+            // Truy vấn đếm tổng số bài viết trong tháng hiện tại và lọc privacy: 'public'
             const countQuery = `
                 SELECT COUNT(DISTINCT a.article_id) AS totalArticles
                 FROM articles AS a
                 WHERE YEAR(a.createdAt) = YEAR(CURRENT_DATE)
-                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE);
+                    AND MONTH(a.createdAt) = MONTH(CURRENT_DATE)
+                    AND a.privacy = 'public';
             `;
-    
+
             // Thực thi các truy vấn
             const articles = await sequelize.query(query, {
                 type: sequelize.QueryTypes.SELECT,
                 replacements: { limit: parseInt(limit), offset: parseInt(offset) },
             });
-    
+
             const countResult = await sequelize.query(countQuery, {
                 type: sequelize.QueryTypes.SELECT,
             });
-    
+
             const totalArticles = countResult[0].totalArticles;
             const totalPages = Math.ceil(totalArticles / limit);
-    
+
             // Trả về kết quả
             res.status(200).json({
                 totalArticles,
@@ -129,7 +131,8 @@ class OtherController {
             });
         }
     }
-    
+
+
 
     async getArticlesByUsername(req, res) {
         const { search, page = 1, limit = 10 } = req.query;
@@ -143,17 +146,17 @@ class OtherController {
                 }
             });
 
-            if(!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+            if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
 
             // Build where clause for search functionality
             let whereClause = search
                 ? { title: { [Op.like]: `%${search}%` } }
                 : {};
-            
+
             whereClause = {
                 ...whereClause,
                 privacy: "public",
-                user_id: user.user_id 
+                user_id: user.user_id
             };
 
             // Fetch articles with pagination, order, and include user info & views
@@ -207,6 +210,7 @@ class OtherController {
                 FROM articles AS a
                 LEFT JOIN comments AS ac ON a.article_id = ac.article_id  -- JOIN với bảng comments
                 LEFT JOIN users AS u ON a.user_id = u.user_id  -- JOIN với bảng users để lấy username
+                WHERE a.privacy = 'public'
                 GROUP BY 
                     a.article_id, 
                     a.title, 
@@ -231,53 +235,56 @@ class OtherController {
         }
     }
 
-    // [GET] /orthers/top_trendings
+    // [GET] /others/top_trendings
     async topTrending(req, res) {
         const { limit = 2 } = req.query; // Số bài viết top trending mỗi loại (mặc định là 2)
 
         try {
             // Truy vấn top trending bài viết theo lượt xem
             const topViews = await sequelize.query(`
-            SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, u.username, u.fullname,
-                COALESCE(SUM(av.view_count), 0) AS total_views
-            FROM articles a
-            LEFT JOIN article_views av ON a.article_id = av.article_id
-            LEFT JOIN users u ON a.user_id = u.user_id
-            GROUP BY a.article_id, u.username
-            ORDER BY total_views DESC
-            LIMIT :limit;
-        `, {
+        SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, u.username, u.fullname,
+            COALESCE(SUM(av.view_count), 0) AS total_views
+        FROM articles a
+        LEFT JOIN article_views av ON a.article_id = av.article_id
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.privacy = 'public'
+        GROUP BY a.article_id, u.username
+        ORDER BY total_views DESC
+        LIMIT :limit;
+    `, {
                 replacements: { limit: parseInt(limit, 10) },
                 type: sequelize.QueryTypes.SELECT
             });
 
             // Truy vấn top trending bài viết theo lượt thích
             const topLikes = await sequelize.query(`
-            SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, u.username, u.fullname,
-                COALESCE(COUNT(al.like_id), 0) AS total_likes
-            FROM articles a
-            LEFT JOIN article_likes al ON a.article_id = al.article_id
-            LEFT JOIN users u ON a.user_id = u.user_id
-            GROUP BY a.article_id, u.username
-            ORDER BY total_likes DESC
-            LIMIT :limit;
-        `, {
+        SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, u.username, u.fullname,
+            COALESCE(COUNT(al.like_id), 0) AS total_likes
+        FROM articles a
+        LEFT JOIN article_likes al ON a.article_id = al.article_id
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.privacy = 'public'
+        GROUP BY a.article_id, u.username
+        ORDER BY total_likes DESC
+        LIMIT :limit;
+    `, {
                 replacements: { limit: parseInt(limit, 10) },
                 type: sequelize.QueryTypes.SELECT
             });
 
             // Truy vấn top trending bài viết theo bình luận
             const topComments = await sequelize.query(`
-            SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, 
-                u.username, u.fullname, 
-                COALESCE(COUNT(c.comment_id), 0) AS total_comments
-            FROM articles a
-            LEFT JOIN comments c ON a.article_id = c.article_id
-            LEFT JOIN users u ON a.user_id = u.user_id
-            GROUP BY a.article_id, u.username
-            ORDER BY total_comments DESC
-            LIMIT :limit;
-        `, {
+        SELECT a.article_id, a.user_id, a.title, a.content, a.tags, a.privacy, a.is_draft, a.slug, a.image_url, a.createdAt, a.updatedAt, 
+            u.username, u.fullname, 
+            COALESCE(COUNT(c.comment_id), 0) AS total_comments
+        FROM articles a
+        LEFT JOIN comments c ON a.article_id = c.article_id
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.privacy = 'public'
+        GROUP BY a.article_id, u.username
+        ORDER BY total_comments DESC
+        LIMIT :limit;
+    `, {
                 replacements: { limit: parseInt(limit, 10) },
                 type: sequelize.QueryTypes.SELECT
             });
@@ -308,6 +315,7 @@ class OtherController {
             res.status(500).json({ message: 'Lỗi khi lấy bài viết top trending', error });
         }
     }
+
 
     // [GET] /other/list_categories
     async listCategories(req, res) {
@@ -381,6 +389,7 @@ class OtherController {
                 FROM articles AS a
                 LEFT JOIN article_views AS av ON a.article_id = av.article_id
                 LEFT JOIN users AS u ON a.user_id = u.user_id  -- JOIN với bảng users để lấy username
+                WHERE a.privacy = 'public'
                 GROUP BY 
                     a.article_id, 
                     a.title, 
@@ -413,7 +422,7 @@ class OtherController {
                 order: [['createdAt', 'DESC']], // Sắp xếp theo ngày tạo (người dùng mới nhất trước)
                 limit: parseInt(limit) // Giới hạn số lượng người dùng trả về
             });
-    
+
             res.status(200).json({
                 totalUsers: users.length,
                 users: users,
@@ -506,7 +515,7 @@ class OtherController {
             console.error('Lỗi khi lấy bài viết liên quan:', error);
             res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết liên quan' });
         }
-    }    
+    }
 
     async topPopularToday(req, res) {
         try {
@@ -523,22 +532,158 @@ class OtherController {
                 ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
                 LIMIT 1;
             `;
-    
+
             const [results] = await sequelize.query(query);
-    
+
             if (results.length === 0) {
                 return res.status(404).json({ message: 'Không tìm thấy bài viết phù hợp.' });
             }
-    
+
             // Chỉ lấy bài viết đầu tiên do có `LIMIT 1` trong query
             const article = results[0];
-    
+
             return res.status(200).json({ article });
         } catch (error) {
             console.error(error);
             return res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết.', error });
         }
     }
+
+    async getArticlesFollowing(req, res) {
+        try {
+            const { userId } = req.user;
+            const { page = 1, limit = 10 } = req.query; // Defaults: page 1, 10 articles per page
+            const offset = (page - 1) * limit;
+
+            // Query to count total articles
+            const countQuery = `
+                SELECT COUNT(*) AS totalArticles
+                FROM articles a
+                JOIN followers f ON f.followed_user_id = a.user_id
+                WHERE f.follower_user_id = :userId
+                  AND a.privacy = 'public'
+                  AND a.is_draft = false
+                  AND DATE(a.createdAt) <= CURDATE();
+            `;
+
+            const [countResult] = await sequelize.query(countQuery, {
+                replacements: { userId }
+            });
+            const totalArticles = countResult[0].totalArticles;
+            const totalPages = Math.ceil(totalArticles / limit);
+
+            // Query to get paginated articles
+            const articlesQuery = `
+                SELECT a.*, u.username, u.avatar_url, u.fullname, c.name AS category_name, c.slug AS category_slug, av.view_count
+                FROM articles a
+                JOIN users u ON a.user_id = u.user_id
+                JOIN followers f ON f.followed_user_id = u.user_id
+                LEFT JOIN article_views av ON a.article_id = av.article_id
+                LEFT JOIN article_categories ac ON a.article_id = ac.article_id
+                LEFT JOIN categories c ON ac.category_id = c.category_id
+                WHERE f.follower_user_id = :userId
+                  AND a.privacy = 'public'
+                  AND a.is_draft = false
+                  AND DATE(a.createdAt) <= CURDATE()
+                GROUP BY a.slug
+                ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
+                LIMIT :limit OFFSET :offset;
+            `;
+
+            const [articles] = await sequelize.query(articlesQuery, {
+                replacements: { userId, limit, offset }
+            });
+
+            return res.status(200).json({
+                articles,
+                totalArticles,
+                currentPage: parseInt(page, 10),
+                totalPages
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết.', error });
+        }
+    }
+
+    async getArticlesByCategorySlug(req, res) {
+        const { slug } = req.query;
+        const limit = parseInt(req.query.limit) || 10;  // Number of articles per page
+        const page = parseInt(req.query.page) || 1;     // Current page
+
+        try {
+            // Calculate offset for pagination
+            const offset = (page - 1) * limit;
+
+            const categoryQuery = `
+                SELECT name
+                FROM categories
+                WHERE slug = :slug;
+            `;
+            const result = await sequelize.query(categoryQuery, {
+                replacements: { slug },
+                type: sequelize.QueryTypes.SELECT
+            });
+
+            // Query to get paginated articles with category slug and filters
+            const articlesQuery = `
+            SELECT a.article_id, a.title, a.content, a.image_url, a.slug AS article_slug, a.createdAt,
+                   u.username, u.avatar_url, u.fullname, av.view_count,
+                   c.name AS category_name, c.slug AS category_slug
+            FROM articles a
+            JOIN users u ON a.user_id = u.user_id
+            LEFT JOIN article_views av ON a.article_id = av.article_id
+            JOIN article_categories ac ON a.article_id = ac.article_id
+            JOIN categories c ON ac.category_id = c.category_id
+            WHERE c.slug = :slug
+              AND a.privacy = 'public'
+              AND a.is_draft = false
+              AND DATE(a.createdAt) <= CURDATE()
+            ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
+            LIMIT :limit OFFSET :offset;
+        `;
+
+            // Query to get the total count of articles for pagination purposes
+            const countQuery = `
+            SELECT COUNT(*) AS totalArticles
+            FROM articles a
+            JOIN article_categories ac ON a.article_id = ac.article_id
+            JOIN categories c ON ac.category_id = c.category_id
+            WHERE c.slug = :slug
+              AND a.privacy = 'public'
+              AND a.is_draft = false
+              AND DATE(a.createdAt) <= CURDATE();
+        `;
+
+            // Execute the queries
+            const articles = await sequelize.query(articlesQuery, {
+                replacements: { slug, limit, offset },
+                type: sequelize.QueryTypes.SELECT
+            });
+
+            const countResult = await sequelize.query(countQuery, {
+                replacements: { slug },
+                type: sequelize.QueryTypes.SELECT
+            });
+
+            // Calculate pagination details
+            const totalArticles = countResult[0].totalArticles;
+            const totalPages = Math.ceil(totalArticles / limit);
+
+            // Response with articles and pagination info
+            return res.status(200).json({
+                categoryName: result.length > 0 ? result[0].name : null,
+                totalArticles,
+                currentPage: page,
+                totalPages,
+                articles,
+            });
+
+        } catch (error) {
+            console.error("Error fetching articles by category slug:", error);
+            return res.status(500).json({ message: "An error occurred while fetching articles." });
+        }
+    };
 
 }
 
