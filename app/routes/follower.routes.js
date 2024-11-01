@@ -7,4 +7,6 @@ const { authenticateToken } = require('../middlewares/auth.middleware.js');
 router.post('/:id', authenticateToken, followerController.add);
 router.get('/:id', authenticateToken, followerController.show);
 
+router.get('/:id/listFollowerAndFollowing', authenticateToken, followerController.list);
+
 module.exports = router;
