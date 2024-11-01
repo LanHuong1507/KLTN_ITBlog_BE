@@ -99,6 +99,57 @@ const FollowerController = {
         } catch (error) {
             return res.status(500).json({ message: 'Lỗi khi thực hiện follow/unfollow', error });
         }
+    },
+
+    // [GET] followers/:id/listFollowerAndFollowing
+    async list(req, res) {
+        const follower_user_id = req.user.userId; // Lấy ID của người đang đăng nhập
+        const { id } = req.params;  // ID này có thể là user_id hoặc username của người được follow
+
+        try {
+            // Tìm người dùng theo user_id hoặc username
+            const followedUser = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { user_id: id },      // Tìm theo user_id
+                        { username: id }      // Tìm theo username
+                    ]
+                }
+            });
+            // Nếu không tìm thấy người dùng
+            if (!followedUser) {
+                return res.status(404).json({ message: "Không tìm thấy người dùng" });
+            }
+
+            const followed_user_id = followedUser.user_id;
+
+            // Lấy danh sách những người theo dõi (followers) của người dùng này
+            const followers = await Follower.findAll({
+                where: { followed_user_id },
+                include: [{
+                    model: User,
+                    as: 'FollowerUser',  
+                    attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
+                }]
+            });
+            // Lấy danh sách những người mà người dùng này đang theo dõi (following)
+            const following = await Follower.findAll({
+                where: { follower_user_id: followed_user_id },
+                include: [{
+                    model: User,
+                    as: 'FollowedUser',  // Đảm bảo tên alias này phù hợp với cấu hình quan hệ trong model
+                    attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
+                }]
+            });
+
+            // Trả về danh sách follower, danh sách following, số lượng follower, và trạng thái follow
+            return res.status(200).json({
+                followers: followers.map(f => f.FollowerUser),  // Lấy thông tin của từng follower
+                following: following.map(f => f.FollowedUser)   // Lấy thông tin của từng following
+            });
+        } catch (error) {
+            return res.status(500).json({ message: 'Lỗi khi lấy thông tin follower và following', error });
+        }
     }
 };
 

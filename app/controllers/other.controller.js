@@ -660,19 +660,19 @@ class OtherController {
 
       // Query to get paginated articles with category slug and filters
       const articlesQuery = `
-            SELECT a.article_id, a.title, a.content, a.image_url, a.slug AS article_slug, a.createdAt,
-                   u.username, u.avatar_url, u.fullname, av.view_count,
-                   c.name AS category_name, c.slug AS category_slug
-            FROM articles a
-            JOIN users u ON a.user_id = u.user_id
-            LEFT JOIN article_views av ON a.article_id = av.article_id
-            JOIN article_categories ac ON a.article_id = ac.article_id
-            JOIN categories c ON ac.category_id = c.category_id
-            WHERE c.slug = :slug
-              AND a.privacy = 'public'
-              AND a.is_draft = false
-              AND DATE(a.createdAt) <= CURDATE()
-            ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
+            SELECT a.*, u.username, u.avatar_url, u.fullname, c.name AS category_name, c.slug AS category_slug, av.view_count
+                FROM articles a
+                JOIN users u ON a.user_id = u.user_id
+                JOIN followers f ON f.followed_user_id = u.user_id
+                LEFT JOIN article_views av ON a.article_id = av.article_id
+                LEFT JOIN article_categories ac ON a.article_id = ac.article_id
+                LEFT JOIN categories c ON ac.category_id = c.category_id
+                WHERE f.follower_user_id = :userId
+                  AND a.privacy = 'public'
+                  AND a.is_draft = false
+                  AND DATE(a.createdAt) <= CURDATE()
+                GROUP BY a.slug
+                ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
             LIMIT :limit OFFSET :offset;
         `;
 
@@ -718,6 +718,56 @@ class OtherController {
         .json({ message: "An error occurred while fetching articles." });
     }
   }
+  // [GET] followers/:id/listFollowerAndFollowing
+    async list(req, res) {
+        const follower_user_id = req.user.userId; // Lấy ID của người đang đăng nhập
+        const { id } = req.params;  // ID này có thể là user_id hoặc username của người được follow
+
+        try {
+            // Tìm người dùng theo user_id hoặc username
+            const followedUser = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { user_id: id },      // Tìm theo user_id
+                        { username: id }      // Tìm theo username
+                    ]
+                }
+            });
+            // Nếu không tìm thấy người dùng
+            if (!followedUser) {
+                return res.status(404).json({ message: "Không tìm thấy người dùng" });
+            }
+
+            const followed_user_id = followedUser.user_id;
+
+            // Lấy danh sách những người theo dõi (followers) của người dùng này
+            const followers = await Follower.findAll({
+                where: { followed_user_id },
+                include: [{
+                    model: User,
+                    as: 'FollowerUser',  
+                    attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
+                }]
+            });
+            // Lấy danh sách những người mà người dùng này đang theo dõi (following)
+            const following = await Follower.findAll({
+                where: { follower_user_id: followed_user_id },
+                include: [{
+                    model: User,
+                    as: 'FollowedUser',  // Đảm bảo tên alias này phù hợp với cấu hình quan hệ trong model
+                    attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
+                }]
+            });
+
+            // Trả về danh sách follower, danh sách following, số lượng follower, và trạng thái follow
+            return res.status(200).json({
+                followers: followers.map(f => f.FollowerUser),  // Lấy thông tin của từng follower
+                following: following.map(f => f.FollowedUser)   // Lấy thông tin của từng following
+            });
+        } catch (error) {
+            return res.status(500).json({ message: 'Lỗi khi lấy thông tin follower và following', error });
+        }
+    }
 }
 
 module.exports = new OtherController();
