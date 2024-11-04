@@ -80,7 +80,6 @@ class ArticleController {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
         }
     }
-
     // [GET] /articles/list
     async list(req, res) {
         const { search, page = 1, limit = 10 } = req.query;
@@ -232,7 +231,6 @@ class ArticleController {
             res.status(500).json({ message: "Lỗi khi lấy bài viết", error });
         }
     }
-
 
     // [POST] /articles
     async add(req, res) {
@@ -439,7 +437,7 @@ class ArticleController {
                 return res.status(404).json({ message: "Không tìm thấy bài viết" });
             }
 
-            if (req.user.userId != article.user_id) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
+            if ((req.user.role != "admin") && (req.user.userId != article.user_id)) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
 
             // Delete the image file if it exists
             if (article.image_url) {

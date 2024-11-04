@@ -100,7 +100,6 @@ const FollowerController = {
             return res.status(500).json({ message: 'Lỗi khi thực hiện follow/unfollow', error });
         }
     },
-
     // [GET] followers/:id/listFollowerAndFollowing
     async list(req, res) {
         const follower_user_id = req.user.userId; // Lấy ID của người đang đăng nhập
@@ -150,7 +149,7 @@ const FollowerController = {
         } catch (error) {
             return res.status(500).json({ message: 'Lỗi khi lấy thông tin follower và following', error });
         }
-    }
+    },
 };
 
 module.exports = FollowerController;

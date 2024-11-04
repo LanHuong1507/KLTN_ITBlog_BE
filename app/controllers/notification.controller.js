@@ -56,7 +56,6 @@ async function index(req, res) {
         res.status(500).json({ message: 'Lỗi khi lấy thông báo', error });
     }
 }
-
 // [DELETE] /notifications/:id - Xóa một thông báo theo ID
 async function deleteNotificationById(req, res) {
     const { id } = req.params;
@@ -90,4 +89,5 @@ async function deleteAllNotificationsByUser(req, res) {
         return res.status(500).json({ message: "Lỗi khi xóa tất cả thông báo", error });
     }
 }
+
 module.exports = { index, deleteAllNotificationsByUser, deleteNotificationById };
