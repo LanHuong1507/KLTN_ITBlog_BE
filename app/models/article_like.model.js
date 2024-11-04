@@ -17,7 +17,7 @@ const ArticleLike = sequelize.define("article_like", {
     }
 }, {
     tableName: "article_likes",
-    timestamps: true
+    timestamps: false
 });
 
 module.exports = ArticleLike;

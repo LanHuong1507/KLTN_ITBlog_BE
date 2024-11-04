@@ -542,7 +542,7 @@ class OtherController {
             // Chỉ lấy bài viết đầu tiên do có `LIMIT 1` trong query
             const article = results[0];
 
-            return res.status(200).json({ article });
+            return res.status(200).json({article });
         } catch (error) {
             console.error(error);
             return res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết.', error });
@@ -606,137 +606,84 @@ class OtherController {
         }
     }
 
-   async getArticlesByCategorySlug(req, res) {
-  const { slug } = req.query;
-  const limit = parseInt(req.query.limit, 10) || 10;  // Number of articles per page
-  const page = parseInt(req.query.page, 10) || 1;     // Current page
+    async getArticlesByCategorySlug(req, res) {
+        const { slug } = req.query;
+        const limit = parseInt(req.query.limit) || 10;  // Number of articles per page
+        const page = parseInt(req.query.page) || 1;     // Current page
 
-  try {
-    // Calculate offset for pagination
-    const offset = (page - 1) * limit;
+        try {
+            // Calculate offset for pagination
+            const offset = (page - 1) * limit;
 
-    // Fetch category name based on slug
-    const categoryQuery = `
-      SELECT name
-      FROM categories
-      WHERE slug = :slug;
-    `;
-    const categoryResult = await sequelize.query(categoryQuery, {
-      replacements: { slug },
-      type: sequelize.QueryTypes.SELECT
-    });
+            const categoryQuery = `
+                SELECT name
+                FROM categories
+                WHERE slug = :slug;
+            `;
+            const result = await sequelize.query(categoryQuery, {
+                replacements: { slug },
+                type: sequelize.QueryTypes.SELECT
+            });
 
-    // Check if the category exists
-    if (categoryResult.length === 0) {
-      return res.status(404).json({ message: "Category not found." });
-    }
+            // Query to get paginated articles with category slug and filters
+            const articlesQuery = `
+            SELECT a.article_id, a.title, a.content, a.image_url, a.slug AS article_slug, a.createdAt,
+                   u.username, u.avatar_url, u.fullname, av.view_count,
+                   c.name AS category_name, c.slug AS category_slug
+            FROM articles a
+            JOIN users u ON a.user_id = u.user_id
+            LEFT JOIN article_views av ON a.article_id = av.article_id
+            JOIN article_categories ac ON a.article_id = ac.article_id
+            JOIN categories c ON ac.category_id = c.category_id
+            WHERE c.slug = :slug
+              AND a.privacy = 'public'
+              AND a.is_draft = false
+              AND DATE(a.createdAt) <= CURDATE()
+            ORDER BY DATE(a.createdAt) DESC, av.view_count DESC
+            LIMIT :limit OFFSET :offset;
+        `;
 
-    // Fetch paginated articles associated with the category
-    const articlesQuery = `
-      SELECT a.article_id, a.title, a.content, a.image_url, a.slug AS article_slug, a.createdAt,
-             u.username, u.avatar_url, u.fullname, IFNULL(av.view_count, 0) AS view_count,
-             c.name AS category_name, c.slug AS category_slug
-      FROM articles a
-      JOIN users u ON a.user_id = u.user_id
-      LEFT JOIN article_views av ON a.article_id = av.article_id
-      JOIN article_categories ac ON a.article_id = ac.article_id
-      JOIN categories c ON ac.category_id = c.category_id
-      WHERE c.slug = :slug
-        AND a.privacy = 'public'
-        AND a.is_draft = false
-        AND DATE(a.createdAt) <= CURDATE()
-      ORDER BY a.createdAt DESC, av.view_count DESC
-      LIMIT :limit OFFSET :offset;
-    `;
-    const articles = await sequelize.query(articlesQuery, {
-      replacements: { slug, limit, offset },
-      type: sequelize.QueryTypes.SELECT
-    });
+            // Query to get the total count of articles for pagination purposes
+            const countQuery = `
+            SELECT COUNT(*) AS totalArticles
+            FROM articles a
+            JOIN article_categories ac ON a.article_id = ac.article_id
+            JOIN categories c ON ac.category_id = c.category_id
+            WHERE c.slug = :slug
+              AND a.privacy = 'public'
+              AND a.is_draft = false
+              AND DATE(a.createdAt) <= CURDATE();
+        `;
 
-    // Fetch the total count of articles for pagination
-    const countQuery = `
-      SELECT COUNT(*) AS totalArticles
-      FROM articles a
-      JOIN article_categories ac ON a.article_id = ac.article_id
-      JOIN categories c ON ac.category_id = c.category_id
-      WHERE c.slug = :slug
-        AND a.privacy = 'public'
-        AND a.is_draft = false
-        AND DATE(a.createdAt) <= CURDATE();
-    `;
-    const countResult = await sequelize.query(countQuery, {
-      replacements: { slug },
-      type: sequelize.QueryTypes.SELECT
-    });
+            // Execute the queries
+            const articles = await sequelize.query(articlesQuery, {
+                replacements: { slug, limit, offset },
+                type: sequelize.QueryTypes.SELECT
+            });
 
-    // Calculate pagination details
-    const totalArticles = countResult[0].totalArticles;
-    const totalPages = Math.ceil(totalArticles / limit);
+            const countResult = await sequelize.query(countQuery, {
+                replacements: { slug },
+                type: sequelize.QueryTypes.SELECT
+            });
 
-    // Respond with articles and pagination info
-    return res.status(200).json({
-      categoryName: categoryResult[0].name,
-      totalArticles,
-      currentPage: page,
-      totalPages,
-      articles
-    });
+            // Calculate pagination details
+            const totalArticles = countResult[0].totalArticles;
+            const totalPages = Math.ceil(totalArticles / limit);
 
-  } catch (error) {
-    console.error("Error fetching articles by category slug:", error);
-    return res.status(500).json({ message: "An error occurred while fetching articles." });
-  }
-}
-// [GET] followers/:id/listFollowerAndFollowing
-async list(req, res) {
-  const follower_user_id = req.user.userId; // Lấy ID của người đang đăng nhập
-  const { id } = req.params;  // ID này có thể là user_id hoặc username của người được follow
+            // Response with articles and pagination info
+            return res.status(200).json({
+                categoryName: result.length > 0 ? result[0].name : null,
+                totalArticles,
+                currentPage: page,
+                totalPages,
+                articles,
+            });
 
-  try {
-      // Tìm người dùng theo user_id hoặc username
-      const followedUser = await User.findOne({
-          where: {
-              [Op.or]: [
-                  { user_id: id },      // Tìm theo user_id
-                  { username: id }      // Tìm theo username
-              ]
-          }
-      });
-      // Nếu không tìm thấy người dùng
-      if (!followedUser) {
-          return res.status(404).json({ message: "Không tìm thấy người dùng" });
-      }
-
-      const followed_user_id = followedUser.user_id;
-
-      // Lấy danh sách những người theo dõi (followers) của người dùng này
-      const followers = await Follower.findAll({
-          where: { followed_user_id },
-          include: [{
-              model: User,
-              as: 'FollowerUser',  
-              attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
-          }]
-      });
-      // Lấy danh sách những người mà người dùng này đang theo dõi (following)
-      const following = await Follower.findAll({
-          where: { follower_user_id: followed_user_id },
-          include: [{
-              model: User,
-              as: 'FollowedUser',  // Đảm bảo tên alias này phù hợp với cấu hình quan hệ trong model
-              attributes: ['user_id', 'username', 'fullName', 'avatar_url']  // Chỉ lấy các thông tin cần thiết
-          }]
-      });
-
-      // Trả về danh sách follower, danh sách following, số lượng follower, và trạng thái follow
-      return res.status(200).json({
-          followers: followers.map(f => f.FollowerUser),  // Lấy thông tin của từng follower
-          following: following.map(f => f.FollowedUser)   // Lấy thông tin của từng following
-      });
-  } catch (error) {
-      return res.status(500).json({ message: 'Lỗi khi lấy thông tin follower và following', error });
-  }
-}
+        } catch (error) {
+            console.error("Error fetching articles by category slug:", error);
+            return res.status(500).json({ message: "An error occurred while fetching articles." });
+        }
+    };
 
 }
 

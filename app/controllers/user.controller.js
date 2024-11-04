@@ -220,8 +220,8 @@ class UserController {
       res.status(500).json({ message: "Lỗi khi khóa người dùng", error });
     }
   }
-   // [PATCH] /users/:id/toggleAdmin
-   async toggleAdmin(req, res) {
+  // [PATCH] /users/:id/toggleAdmin
+  async toggleAdmin(req, res) {
     try {
       const { id } = req.params;
       const user = await User.findByPk(id);
