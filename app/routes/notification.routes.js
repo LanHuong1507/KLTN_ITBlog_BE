@@ -7,5 +7,4 @@ router.get('/', authenticateToken, notificationController.index);
 
 router.delete('/:id', authenticateToken, notificationController.deleteNotificationById);
 router.delete('/', authenticateToken, notificationController.deleteAllNotificationsByUser);
-
 module.exports = router;
