@@ -80,6 +80,7 @@ class ArticleController {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
         }
     }
+
     // [GET] /articles/list
     async list(req, res) {
         const { search, page = 1, limit = 10 } = req.query;
@@ -231,6 +232,7 @@ class ArticleController {
             res.status(500).json({ message: "Lỗi khi lấy bài viết", error });
         }
     }
+
 
     // [POST] /articles
     async add(req, res) {

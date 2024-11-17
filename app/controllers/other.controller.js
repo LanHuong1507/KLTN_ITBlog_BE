@@ -135,7 +135,7 @@ class OtherController {
 
 
     async getArticlesByUsername(req, res) {
-        const { search, page = 1, limit = 10 } = req.query;
+        const { search, page = 1, limit = 6 } = req.query;
         const offset = (page - 1) * limit;
         const { username } = req.params;
 
