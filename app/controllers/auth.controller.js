@@ -82,9 +82,6 @@ class AuthController {
             return res.status(500).json({ message: "Lỗi đăng nhập", error });
         }
     }
-
-
-    // [POST] /refresh-token
     async refreshToken(req, res) {
         const { refreshToken } = req.body;
 
@@ -94,7 +91,6 @@ class AuthController {
 
         try {
             
-            // Xác thực refresh token
             const decoded = jwt.verify(refreshToken, JWT_SECRET);
 
             const user = await User.findOne({
@@ -114,8 +110,6 @@ class AuthController {
             return res.status(400).json({ message: "Refresh token không hợp lệ", error });
         }
     }
-
-    // [POST] /user/password-reset
     async passwordReset(req, res) {
         const { email } = req.body;
 
@@ -123,32 +117,25 @@ class AuthController {
             if (!email) {
                 return res.status(400).json({ message: "Email không được để trống" });
             }
-
-            // Tìm user theo email
             const user = await User.findOne({ where: { email } });
             if (!user) {
                 return res.status(404).json({ message: "Không tìm thấy người dùng với email này" });
             }
-
-            // Tạo mã token reset mật khẩu
             const resetToken = crypto.randomBytes(32).toString("hex");
-            const expiresAt = new Date(Date.now() + 3600000); // Token hết hạn sau 1 giờ
-
-            // Lưu token và thời gian hết hạn vào bảng users
+            const expiresAt = new Date(Date.now() + 3600000); 
             user.password_reset_token = resetToken;
             user.password_reset_expires = expiresAt;
             await user.save();
-
-            // Cấu hình gửi email
             const transporter = nodemailer.createTransport({
-                service: "Gmail", // Hoặc SMTP server khác
+                service: "Gmail",
                 auth: {
                     user: "vanbac21112k2@gmail.com",
                     pass: "mtsm ucvo xmjd xsln" 
+                },
+                tls: {
+                    rejectUnauthorized: false, 
                 }
             });
-
-            // Tạo URL để reset mật khẩu
             const resetUrl = `http://127.0.0.1:3000/doi-mat-khau/?token=${resetToken}`;
 
             // Nội dung email
