@@ -79,6 +79,14 @@ const FollowerController = {
                     where: { follower_id: existingFollower.follower_id }
                 });
 
+                // Xóa thông báo 
+                await Notification.destroy({
+                    where: {
+                        user_id: followed_user_id,
+                        type: 'follow',
+                        related_user_id: follower_user_id
+                    }
+                });
                 return res.status(200).json({ message: 'Đã hủy theo dõi' });
             } else {
                 // Nếu chưa follow thì thêm follow
@@ -100,8 +108,8 @@ const FollowerController = {
             return res.status(500).json({ message: 'Lỗi khi thực hiện follow/unfollow', error });
         }
     },
-    // [GET] followers/:id/listFollowerAndFollowing
-    async list(req, res) {
+      // [GET] followers/:id/listFollowerAndFollowing
+      async list(req, res) {
         const follower_user_id = req.user.userId; // Lấy ID của người đang đăng nhập
         const { id } = req.params;  // ID này có thể là user_id hoặc username của người được follow
 

@@ -13,5 +13,4 @@ router.get('/', authenticateToken, requireAdmin, userController.index);
 
 router.patch('/:id/toggleAdmin', authenticateToken, requireAdmin, userController.toggleAdmin);
 
-
 module.exports = router;

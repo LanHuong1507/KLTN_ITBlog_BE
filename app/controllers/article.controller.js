@@ -18,7 +18,6 @@ class ArticleController {
         const { role, userId } = req.user; // Lấy role và userId từ req.user
 
         try {
-            // Build where clause for search functionality
             let whereClause = search
                 ? { title: { [Op.like]: `%${search}%` } }
                 : {};
@@ -52,29 +51,27 @@ class ArticleController {
                 where: whereClause,
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                order: [['article_id', 'DESC']], // Order by article_id in descending order
+                order: [['article_id', 'DESC']], 
                 include: [
                     {
                         model: User,
-                        as: 'user', // Alias defined in Article model
-                        attributes: ['username'] // Include only the 'username' field
+                        as: 'user',
+                        attributes: ['username'] 
                     },
                     {
                         model: ArticleView,
-                        as: 'views', // Alias defined in relationship
-                        attributes: ['view_count'], // Lấy lượt xem
+                        as: 'views',
+                        attributes: ['view_count'],
                     }
                 ]
             });
 
             const totalPages = Math.ceil(count / limit);
-
-            // Send response in the desired format
             res.status(200).json({
-                totalArticles: count, // Total number of articles
-                currentPage: parseInt(page), // Current page
-                totalPages, // Total pages
-                articles: rows, // Array of articles with user info and view count
+                totalArticles: count, 
+                currentPage: parseInt(page),
+                totalPages,
+                articles: rows,
             });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
@@ -86,7 +83,6 @@ class ArticleController {
         const { search, page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         try {
-            // Build where clause for search functionality
             let whereClause = search
                 ? { title: { [Op.like]: `%${search}%` } }
                 : {};
@@ -95,23 +91,19 @@ class ArticleController {
                 ...whereClause,
                 privacy: 'public' // Chỉ lấy các bài viết được duyệt
             };
-
-            // Fetch articles with pagination and order
             const { rows, count } = await Article.findAndCountAll({
                 where: whereClause,
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                order: [['article_id', 'DESC']], // Order by article_id in descending order
+                order: [['article_id', 'DESC']],
             });
 
             const totalPages = Math.ceil(count / limit);
-
-            // Send response in the desired format
             res.status(200).json({
-                totalArticles: count, // Total number of articles
-                currentPage: parseInt(page), // Current page
-                totalPages, // Total pages
-                articles: rows, // Array of articles
+                totalArticles: count,
+                currentPage: parseInt(page),
+                totalPages,
+                articles: rows,
             });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết", error });
@@ -239,25 +231,19 @@ class ArticleController {
 
         try {
             const { user_id = req.user.userId, title, content, tags, is_draft, slug, categories } = req.body;
-            let image_url = req.file; // Handle image upload
+            let image_url = req.file;
             if (!title || !content || !slug) {
                 return res.status(400).json({ message: "Các trường tiêu đề, nội dung, và đường dẫn là bắt buộc" });
             }
-
-            // Check if slug already exists
             const existingArticle = await Article.findOne({ where: { slug } });
             if (existingArticle) {
                 return res.status(400).json({ message: "Đường dẫn đã tồn tại" });
             }
 
             if (!image_url) return res.status(400).json({ message: "Vui lòng chọn ảnh đại diện cho bài viết" });
-
-            // Parse categories từ req.body (nó sẽ là JSON string)
             const selectedCategories = JSON.parse(categories);
 
             if (!selectedCategories || selectedCategories.length <= 0) return res.status(400).json({ message: "Vui lòng chọn ít nhất 1 chuyên mục" });
-
-            // Handle image upload
             image_url = image_url.path.replace(/\\/g, '/');
 
             const newArticle = await Article.create({
@@ -327,7 +313,7 @@ class ArticleController {
             const { id } = req.params;
             const { title, content, tags, slug, is_draft, categories } = req.body;
 
-            const image_url = req.file; // Handle image upload
+            const image_url = req.file;
 
             const article = await Article.findOne({ where: { article_id: id } });
 
@@ -336,8 +322,6 @@ class ArticleController {
             }
 
             if ((req.user.role != "admin") && (req.user.userId != article.user_id)) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
-
-            // Check if the new slug is already used by another article
             if (slug && slug !== article.slug) {
                 const existingArticle = await Article.findOne({ where: { slug } });
                 if (existingArticle) {
@@ -352,7 +336,6 @@ class ArticleController {
 
             let imageUrl = article.image_url;
             if (image_url) {
-                // Delete old image if it exists
                 if (article.image_url) {
                     const oldImagePath = path.join(__dirname, '..', '..', article.image_url);
                     if (fs.existsSync(oldImagePath)) {
@@ -367,7 +350,7 @@ class ArticleController {
             }else{
                 await article.update({ title, content, tags, slug, is_draft, 
                     image_url: imageUrl, 
-                    privacy: req.user.role == "admin" ? "public" : "private" });
+                    privacy: req.user.role == "admin" ? "public" : "private" });            
             }
 
             await ArticleCategory.destroy({ where: {article_id: id}});
@@ -389,7 +372,7 @@ class ArticleController {
     async draft(req, res) {
         const { id } = req.params;
         const { title, content, tags, slug } = req.body;
-        const image_url = req.file; // Handle image upload
+        const image_url = req.file;
 
         try {
             const article = await Article.findOne({ where: { article_id: id } });
@@ -399,8 +382,6 @@ class ArticleController {
             }
 
             if ((req.user.role != "admin") && (req.user.userId != article.user_id)) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
-
-            // Check if the new slug is already used by another article
             if (slug && slug !== article.slug) {
                 const existingArticle = await Article.findOne({ where: { slug } });
                 if (existingArticle) {
@@ -410,7 +391,6 @@ class ArticleController {
 
             let imageUrl = article.image_url;
             if (image_url) {
-                // Delete old image if it exists
                 if (article.image_url) {
                     const oldImagePath = path.join(__dirname, '..', '..', article.image_url);
                     if (fs.existsSync(oldImagePath)) {
@@ -440,8 +420,6 @@ class ArticleController {
             }
 
             if ((req.user.role != "admin") && (req.user.userId != article.user_id)) return res.status(403).json({ message: "Bạn không có quyền thực hiện" });
-
-            // Delete the image file if it exists
             if (article.image_url) {
                 const imagePath = path.join(__dirname, '..', '..', article.image_url);
                 if (fs.existsSync(imagePath)) {
@@ -503,7 +481,6 @@ class ArticleController {
         const offset = (page - 1) * limit;
 
         try {
-            // Build where clause for search functionality
             let whereClause = search
                 ? { title: { [Op.like]: `%${search}%` } }
                 : {};
@@ -513,23 +490,19 @@ class ArticleController {
                 slug: '[rejected]', // Chỉ lấy các bài viết bị từ chối
                 user_id: userId // Lọc theo user_id
             };
-
-            // Fetch rejected articles with pagination and order
             const { rows, count } = await Article.findAndCountAll({
                 where: whereClause,
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                order: [['article_id', 'DESC']], // Order by article_id in descending order
+                order: [['article_id', 'DESC']],
             });
 
             const totalPages = Math.ceil(count / limit);
-
-            // Send response in the desired format
             res.status(200).json({
-                totalArticles: count, // Total number of rejected articles
-                currentPage: parseInt(page), // Current page
-                totalPages, // Total pages
-                articles: rows, // Array of rejected articles
+                totalArticles: count,
+                currentPage: parseInt(page),
+                totalPages,
+                articles: rows,
             });
         } catch (error) {
             res.status(500).json({ message: "Lỗi khi truy vấn bài viết bị từ chối", error });
