@@ -82,6 +82,9 @@ class AuthController {
             return res.status(500).json({ message: "Lỗi đăng nhập", error });
         }
     }
+
+
+    // [POST] /refresh-token
     async refreshToken(req, res) {
         const { refreshToken } = req.body;
 
@@ -91,6 +94,7 @@ class AuthController {
 
         try {
             
+            // Xác thực refresh token
             const decoded = jwt.verify(refreshToken, JWT_SECRET);
 
             const user = await User.findOne({
@@ -110,6 +114,8 @@ class AuthController {
             return res.status(400).json({ message: "Refresh token không hợp lệ", error });
         }
     }
+
+    // [POST] /user/password-reset
     async passwordReset(req, res) {
         const { email } = req.body;
 
@@ -117,15 +123,23 @@ class AuthController {
             if (!email) {
                 return res.status(400).json({ message: "Email không được để trống" });
             }
+
+            // Tìm user theo email
             const user = await User.findOne({ where: { email } });
             if (!user) {
                 return res.status(404).json({ message: "Không tìm thấy người dùng với email này" });
             }
+
+            // Tạo mã token reset mật khẩu
             const resetToken = crypto.randomBytes(32).toString("hex");
-            const expiresAt = new Date(Date.now() + 3600000); 
+            const expiresAt = new Date(Date.now() + 3600000); // Token hết hạn sau 1 giờ
+
+            // Lưu token và thời gian hết hạn vào bảng users
             user.password_reset_token = resetToken;
             user.password_reset_expires = expiresAt;
             await user.save();
+
+            // Cấu hình gửi email
             const transporter = nodemailer.createTransport({
                 service: "Gmail",
                 auth: {
@@ -136,6 +150,8 @@ class AuthController {
                     rejectUnauthorized: false, 
                 }
             });
+
+            // Tạo URL để reset mật khẩu
             const resetUrl = `http://127.0.0.1:3000/doi-mat-khau/?token=${resetToken}`;
 
             // Nội dung email
@@ -196,6 +212,12 @@ class AuthController {
 
         return res.status(200).json({ message: "Đặt lại mật khẩu thành công." });
 
+        try {
+            
+        } catch (error) {
+            console.error("Lỗi đặt lại mật khẩu:", error);
+            return res.status(500).json({ message: "Lỗi đặt lại mật khẩu", error });
+        }
     }
 }
 

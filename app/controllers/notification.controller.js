@@ -22,11 +22,11 @@ async function index(req, res) {
                 {
                     model: User,
                     as: 'related_user', // Thông tin của người dùng liên quan đến thông báo
-                    attributes: ['fullname', 'avatar_url']
+                    attributes: ['fullname', 'avatar_url', 'username']
                 },
                 {
                     model: Article,
-                    attributes: ['title', 'slug'] // Lấy title của bài viết
+                    attributes: ['title', 'slug', 'image_url'] // Lấy title của bài viết
                 }
             ]
         });
@@ -44,11 +44,13 @@ async function index(req, res) {
                 createdAt: notification.createdAt,
                 user: {
                     fullname: notification.related_user?.fullname,
+                    username: notification.related_user?.username,
                     avatar_url: notification.related_user?.avatar_url
                 },
                 article: {
                     title: notification.article?.title,
-                    slug: notification.article?.slug
+                    slug: notification.article?.slug,
+                    image_url: notification.article?.image_url,
                 }
             })) // Danh sách thông báo kèm thông tin user và article
         });
