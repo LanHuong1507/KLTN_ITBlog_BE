@@ -1,10 +1,9 @@
-const Category = require('../models/category.model.js');
-const { Op } = require('sequelize');
-const path = require('path');
-const fs = require('fs');
+const Category = require("../models/category.model.js");
+const { Op } = require("sequelize");
+const path = require("path");
+const fs = require("fs");
 
 class CategoryController {
-
   // [GET] /categories?search=term&page=1&limit=10
   async index(req, res) {
     const { search, page = 1, limit = 10 } = req.query;
@@ -12,16 +11,14 @@ class CategoryController {
 
     try {
       // Build where clause for search functionality
-      const whereClause = search
-        ? { name: { [Op.like]: `%${search}%` } }
-        : {};
+      const whereClause = search ? { name: { [Op.like]: `%${search}%` } } : {};
 
       // Fetch categories with pagination
       const { rows, count } = await Category.findAndCountAll({
         where: whereClause,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        order: [['category_id', 'DESC']],
+        order: [["category_id", "DESC"]],
       });
 
       const totalPages = Math.ceil(count / limit);
@@ -38,7 +35,6 @@ class CategoryController {
     }
   }
 
-
   // [GET] /categories/:idOrSlug
   async show(req, res) {
     const { idOrSlug } = req.params;
@@ -46,11 +42,8 @@ class CategoryController {
     try {
       const category = await Category.findOne({
         where: {
-          [Op.or]: [
-            { category_id: idOrSlug },
-            { slug: idOrSlug }
-          ]
-        }
+          [Op.or]: [{ category_id: idOrSlug }, { slug: idOrSlug }],
+        },
       });
 
       if (!category) {
@@ -69,26 +62,35 @@ class CategoryController {
     let image_url = req.file; // Handle image upload
 
     try {
+      if (!name || !slug)
+        return res
+          .status(400)
+          .json({ message: "Tên và đường dẫn danh mục là bắt buộc" });
 
-      if (!name || !slug) return res.status(400).json({ message: "Tên và đường dẫn danh mục là bắt buộc" });
-
-      if (!image_url) return res.status(400).json({ message: "Vui lòng chọn ảnh danh mục" });
+      if (!image_url)
+        return res.status(400).json({ message: "Vui lòng chọn ảnh danh mục" });
 
       // Kiểm tra xem slug có bị trùng hay không
       const existingCategory = await Category.findOne({ where: { slug } });
       if (existingCategory) {
-          return res.status(400).json({ message: "Đường dẫn đã tồn tại, vui lòng chọn đường dẫn khác" });
+        return res
+          .status(400)
+          .json({
+            message: "Đường dẫn đã tồn tại, vui lòng chọn đường dẫn khác",
+          });
       }
 
-      image_url = image_url.path.replace(/\\/g, '/');
+      image_url = image_url.path.replace(/\\/g, "/");
 
       const newCategory = await Category.create({
         name,
         slug,
-        image_url
+        image_url,
       });
 
-      return res.status(201).json({ message: "Thêm danh mục thành công", category: newCategory });
+      return res
+        .status(201)
+        .json({ message: "Thêm danh mục thành công", category: newCategory });
     } catch (error) {
       return res.status(500).json({ message: "Lỗi khi thêm danh mục", error });
     }
@@ -110,7 +112,7 @@ class CategoryController {
       if (slug && slug !== category.slug) {
         const existingSlug = await Category.findOne({ where: { slug } });
         if (existingSlug) {
-            return res.status(400).json({ message: "Đường dẫn đã tồn tại" });
+          return res.status(400).json({ message: "Đường dẫn đã tồn tại" });
         }
       }
 
@@ -118,17 +120,24 @@ class CategoryController {
       if (image_url) {
         // Delete old image if it exists
         if (category.image_url) {
-          const oldImagePath = path.join(__dirname, '..', '..', category.image_url);
+          const oldImagePath = path.join(
+            __dirname,
+            "..",
+            "..",
+            category.image_url,
+          );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
         }
-        imageUrl = image_url.path.replace(/\\/g, '/');
+        imageUrl = image_url.path.replace(/\\/g, "/");
       }
 
       await category.update({ name, slug, image_url: imageUrl });
 
-      res.status(200).json({ message: "Cập nhật danh mục thành công", category });
+      res
+        .status(200)
+        .json({ message: "Cập nhật danh mục thành công", category });
     } catch (error) {
       res.status(500).json({ message: "Lỗi khi cập nhật danh mục", error });
     }
@@ -147,7 +156,7 @@ class CategoryController {
 
       // Delete the image file if it exists
       if (category.image_url) {
-        const imagePath = path.join(__dirname, '..', '..', category.image_url);
+        const imagePath = path.join(__dirname, "..", "..", category.image_url);
         if (fs.existsSync(imagePath)) {
           fs.unlinkSync(imagePath);
         }
