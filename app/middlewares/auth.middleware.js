@@ -1,15 +1,16 @@
-const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'your_jwt_secret'; // Sử dụng cùng giá trị bí mật như trong UserController
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = "your_jwt_secret"; // Sử dụng cùng giá trị bí mật như trong UserController
 
 // Middleware để xác thực người dùng
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-  if (token == null) return res.status(401).json({ message: 'Yêu cầu đăng nhập.' });
+  if (token == null)
+    return res.status(401).json({ message: "Yêu cầu đăng nhập." });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(401).json({ message: 'Yêu cầu đăng nhập.' });
+    if (err) return res.status(401).json({ message: "Yêu cầu đăng nhập." });
     req.user = user;
     next();
   });
@@ -17,16 +18,24 @@ function authenticateToken(req, res, next) {
 
 // Middleware để kiểm tra vai trò admin
 function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Vui lòng đăng nhập tài khoản "Quản trị viên" để thực hiện.' });
+  if (req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({
+        message: 'Vui lòng đăng nhập tài khoản "Quản trị viên" để thực hiện.',
+      });
   }
   next();
 }
 
 // Middleware để kiểm tra vai trò user
 function requireCustomer(req, res, next) {
-  if (req.user.role !== 'user') {
-    return res.status(403).json({ message: 'Vui lòng đăng nhập tài khoản "Người dùng" để thực hiện.' });
+  if (req.user.role !== "user") {
+    return res
+      .status(403)
+      .json({
+        message: 'Vui lòng đăng nhập tài khoản "Người dùng" để thực hiện.',
+      });
   }
   next();
 }

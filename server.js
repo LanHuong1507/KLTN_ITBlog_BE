@@ -1,22 +1,21 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const path = require('path');
+const path = require("path");
 const methodOverride = require("method-override");
 
 // Connect to database
-const sequelize = require('./app/config/db.config.js');
+const sequelize = require("./app/config/db.config.js");
 
 // Test database connection
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log('Connection DATABASE successfully.');
+    console.log("Connection DATABASE successfully.");
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error("Unable to connect to the database:", error);
   }
 })();
-
 
 app.use(cors());
 
@@ -24,16 +23,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
 // Middleware for method overriding
 app.use(methodOverride("_method"));
 
-app.use('/uploads/', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads/", express.static(path.join(__dirname, "uploads")));
 
 //Import route application
-const route = require("./app/routes/index.js")
+const route = require("./app/routes/index.js");
 // Routes
-route(app)
+route(app);
 
 // Start the server
 const PORT = process.env.PORT || 3001;
