@@ -287,10 +287,10 @@ class ArticleController {
         return res.status(400).json({ message: "Vui lòng chọn ảnh" });
       }
 
-      const image_url = req.file.path.replace(/\\/g, "/"); // Normalize path
+      const imageUrl = `uploads/articles/${req.file.filename}`;
       return res.status(200).json({
         uploaded: true,
-        url: `https://kltn-itblog-be.onrender.com/${image_url}`, // Đường dẫn tới file đã tải lên
+        url: `https://kltn-itblog-be.onrender.com/${imageUrl}`,
       });
     } catch (error) {
       res.status(500).json({ message: "Error uploading image", error });
