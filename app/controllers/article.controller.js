@@ -35,9 +35,7 @@ class ArticleController {
         };
         if (search) {
           whereClause = {
-            [Op.or]: [
-              { title: { [Op.like]: `%${search}%` } },
-            ],
+            [Op.or]: [{ title: { [Op.like]: `%${search}%` } }],
           };
         }
       }
@@ -230,11 +228,9 @@ class ArticleController {
       } = req.body;
       let image_url = req.file;
       if (!title || !content || !slug) {
-        return res
-          .status(400)
-          .json({
-            message: "Các trường tiêu đề, nội dung, và đường dẫn là bắt buộc",
-          });
+        return res.status(400).json({
+          message: "Các trường tiêu đề, nội dung, và đường dẫn là bắt buộc",
+        });
       }
       const existingArticle = await Article.findOne({ where: { slug } });
       if (existingArticle) {
@@ -292,10 +288,9 @@ class ArticleController {
       }
 
       const image_url = req.file.path.replace(/\\/g, "/"); // Normalize path
-
       return res.status(200).json({
         uploaded: true,
-        url: `${process.env.REACT_APP_API_URL}/${image_url}`, // Đường dẫn tới file đã tải lên
+        url: `https://kltn-itblog-be.onrender.com/${image_url}`, // Đường dẫn tới file đã tải lên
       });
     } catch (error) {
       res.status(500).json({ message: "Error uploading image", error });
@@ -363,7 +358,7 @@ class ArticleController {
             __dirname,
             "..",
             "..",
-            article.image_url,
+            article.image_url
           );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
@@ -442,7 +437,7 @@ class ArticleController {
             __dirname,
             "..",
             "..",
-            article.image_url,
+            article.image_url
           );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
