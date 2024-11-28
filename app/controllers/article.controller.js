@@ -295,7 +295,7 @@ class ArticleController {
 
       return res.status(200).json({
         uploaded: true,
-        url: image_url,
+        url: `https://kltn-itblog-be.onrender.com/${image_url}`, // Đường dẫn tới file đã tải lên
       });
     } catch (error) {
       res.status(500).json({ message: "Error uploading image", error });
