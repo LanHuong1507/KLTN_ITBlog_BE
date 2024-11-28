@@ -295,7 +295,7 @@ class ArticleController {
 
       return res.status(200).json({
         uploaded: true,
-        url: `http://127.0.0.1:3001/${image_url}`, // Đường dẫn tới file đã tải lên
+        url: image_url,
       });
     } catch (error) {
       res.status(500).json({ message: "Error uploading image", error });
