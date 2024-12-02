@@ -182,7 +182,7 @@ class AuthController {
       });
 
       // Tạo URL để reset mật khẩu
-      const resetUrl = `http://127.0.0.1:3000/doi-mat-khau/?token=${resetToken}`;
+      const resetUrl = `https://kltn-itblog-be.onrender.com/doi-mat-khau/?token=${resetToken}`;
 
       // Nội dung email
       const mailOptions = {

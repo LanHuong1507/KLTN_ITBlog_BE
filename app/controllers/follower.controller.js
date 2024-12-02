@@ -78,6 +78,14 @@ const FollowerController = {
                 await Follower.destroy({
                     where: { follower_id: existingFollower.follower_id }
                 });
+                // Xóa thông báo 
+                await Notification.destroy({
+                    where: {
+                        user_id: followed_user_id,
+                        type: 'follow',
+                        related_user_id: follower_user_id
+                    }
+                });
 
                 return res.status(200).json({ message: 'Đã hủy theo dõi' });
             } else {
