@@ -182,7 +182,8 @@ class AuthController {
       });
 
       // Tạo URL để reset mật khẩu
-      const resetUrl = `https://kltn-itblog-be.onrender.com/doi-mat-khau/?token=${resetToken}`;
+      const resetUrl = `kltn-it-blog-fe.vercel.app/doi-mat-khau/?token=${resetToken}`;
+
 
       // Nội dung email
       const mailOptions = {
