@@ -860,19 +860,39 @@ class OtherController {
                     })
                 )
             );
-    
-            // Bình luận trong ngày, tuần, tháng này
-            const commentsStats = {
-                day: await Comment.count({
-                    where: { createdAt: { [Op.gte]: startOfDay }, user_id: userId }
-                }),
-                week: await Comment.count({
-                    where: { createdAt: { [Op.gte]: startOfWeek }, user_id: userId }
-                }),
-                month: await Comment.count({
-                    where: { createdAt: { [Op.gte]: startOfMonth }, user_id: userId }
-                })
-            };
+    //Lượt bình luận đã nhận trong ngày/tuần/tháng
+    const commentsStats = {
+        day: await Comment.count({
+            where: { createdAt: { [Op.gte]: startOfDay } },
+            include: [
+                {
+                    model: Article,
+                    as: 'article',
+                    where: { user_id: userId }
+                }
+            ]
+        }),
+        week: await Comment.count({
+            where: { createdAt: { [Op.gte]: startOfWeek } },
+            include: [
+                {
+                    model: Article,
+                    as: 'article',
+                    where: { user_id: userId }
+                }
+            ]
+        }),
+        month: await Comment.count({
+            where: { createdAt: { [Op.gte]: startOfMonth } },
+            include: [
+                {
+                    model: Article,
+                    as: 'article',
+                    where: { user_id: userId }
+                }
+            ]
+        })
+    };
             // Bài viết public trong ngày, tuần, tháng này
             const publicArticlesStats = {
                 day: await Article.count({
