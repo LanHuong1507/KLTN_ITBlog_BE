@@ -4,13 +4,14 @@ const articleController = require("../controllers/article.controller.js");
 const {
   authenticateToken,
   requireAdmin,
+  authenticateTokenNotRequired,
 } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js")(
   "uploads/articles",
 );
 
 router.delete("/:id", authenticateToken, articleController.delete);
-router.get("/:idOrSlug", articleController.show);
+router.get("/:idOrSlug", authenticateTokenNotRequired, articleController.show);
 router.put(
   "/:id",
   authenticateToken,

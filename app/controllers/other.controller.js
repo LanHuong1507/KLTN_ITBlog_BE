@@ -612,6 +612,110 @@ class OtherController {
         }
     }
 
+    async getArticlesRecomend(req, res) {
+        try {
+            const { userId } = req.user;
+            const { page = 1, limit = 6 } = req.query; // Defaults: page 1, 10 articles per page
+            const offset = (page - 1) * limit;
+        
+            // Query to get recommended articles
+            const recomendQuery = `
+                SELECT * 
+                FROM articles 
+                WHERE article_id IN (
+                    SELECT DISTINCT article_id
+                    FROM article_categories
+                    WHERE category_id IN (
+                        SELECT category_id
+                        FROM article_categories 
+                        WHERE article_id = (
+                            SELECT article_id
+                            FROM reading_lists
+                            WHERE user_id = :userId
+                            ORDER BY updatedAt DESC
+                            LIMIT 1
+                        )
+                    )
+                )
+                AND privacy = 'public'
+                ORDER BY article_id DESC
+            `;
+        
+            const [recomendArticles] = await sequelize.query(recomendQuery, {
+                replacements: { userId }
+            });
+        
+            // Query to get articles that are not in the recommended list
+            const articlesQuery = `
+                SELECT * 
+                FROM articles 
+                WHERE article_id NOT IN (
+                    SELECT DISTINCT article_id
+                    FROM article_categories
+                    WHERE category_id IN (
+                        SELECT category_id
+                        FROM article_categories 
+                        WHERE article_id = (
+                            SELECT article_id
+                            FROM reading_lists
+                            WHERE user_id = :userId
+                            ORDER BY updatedAt DESC
+                            LIMIT 1
+                        )
+                    )
+                )
+                AND privacy = 'public'
+                ORDER BY article_id DESC;
+            `;
+        
+            const [articles] = await sequelize.query(articlesQuery, {
+                replacements: { userId }
+            });
+        
+            // Combine recommended articles and other articles
+            const allArticles = recomendArticles.concat(articles);
+        
+            // Calculate total articles and total pages
+            const totalArticles = allArticles.length;
+            const totalPages = Math.ceil(totalArticles / limit);
+        
+            // Slice the articles for the current page
+            const paginatedArticles = allArticles.slice(offset, offset + limit);
+    
+            // Fetch additional information like user and views
+            const articlesWithUserAndViews = await Promise.all(paginatedArticles.map(async article => {
+                const user = await User.findByPk(article.user_id, { attributes: ['fullname', 'username'] });
+                const views = await ArticleView.findAll({
+                    where: { article_id: article.article_id },
+                    attributes: ['view_count']
+                });
+    
+                // Return modified article with user and views data
+                return {
+                    ...article,
+                    user: {
+                        fullname: user.fullname,
+                        username: user.username
+                    },
+                    views: views.map(view => ({
+                        view_count: view.view_count
+                    }))
+                };
+            }));
+        
+            return res.status(200).json({
+                totalArticles,
+                currentPage: parseInt(page, 10),
+                totalPages,
+                articles: articlesWithUserAndViews
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Có lỗi xảy ra khi lấy bài viết.', error });
+        }
+    }
+
+
     async getArticlesByCategorySlug(req, res) {
         const { slug } = req.query;
         const limit = parseInt(req.query.limit) || 10;  // Number of articles per page

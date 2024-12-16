@@ -16,6 +16,27 @@ function authenticateToken(req, res, next) {
   });
 }
 
+function authenticateTokenNotRequired(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  // Nếu không có token, tiếp tục xử lý mà không cần xác thực
+  if (!token) {
+    req.user = null; // Không có user trong request
+    return next();
+  }
+
+  // Nếu có token, xác thực nó
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      req.user = null; // Token không hợp lệ thì bỏ qua user
+    } else {
+      req.user = user; // Gắn thông tin user vào request nếu xác thực thành công
+    }
+    next(); // Tiếp tục xử lý request
+  });
+}
+
 // Middleware để kiểm tra vai trò admin
 function requireAdmin(req, res, next) {
   if (req.user.role !== "admin") {
@@ -40,4 +61,9 @@ function requireCustomer(req, res, next) {
   next();
 }
 
-module.exports = { authenticateToken, requireAdmin, requireCustomer };
+module.exports = {
+  authenticateToken,
+  requireAdmin,
+  requireCustomer,
+  authenticateTokenNotRequired,
+};

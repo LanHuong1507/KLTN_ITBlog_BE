@@ -35,9 +35,7 @@ class ArticleController {
         };
         if (search) {
           whereClause = {
-            [Op.or]: [
-              { title: { [Op.like]: `%${search}%` } },
-            ],
+            [Op.or]: [{ title: { [Op.like]: `%${search}%` } }],
           };
         }
       }
@@ -136,6 +134,28 @@ class ArticleController {
         articleView.view_count += 1;
         await articleView.save(); // Lưu lại số lượt xem mới
       }
+      // Kiểm tra nếu có người dùng đăng nhập (req.user)
+      if (req.user) {
+        const userId = req.user.userId; // Giả định req.user chứa thông tin user và id là khóa chính
+
+        // Kiểm tra xem bài viết đã tồn tại trong reading list chưa
+        const [readingList, readingListCreated] =
+          await ReadingList.findOrCreate({
+            where: {
+              user_id: userId,
+              article_id: article.article_id,
+            },
+            defaults: {
+              name: "default",
+            },
+          });
+        if (!readingListCreated) {
+          // Đổi name thành "default" + ngày hiện tại
+          const currentDate = new Date().toISOString(); // Định dạng ngày thành chuỗi ISO
+          await readingList.update({ name: `default-${currentDate}` });
+        }
+        // console.log(new Date())
+      }
 
       const listCategories = await ArticleCategory.findAll({
         where: {
@@ -230,11 +250,9 @@ class ArticleController {
       } = req.body;
       let image_url = req.file;
       if (!title || !content || !slug) {
-        return res
-          .status(400)
-          .json({
-            message: "Các trường tiêu đề, nội dung, và đường dẫn là bắt buộc",
-          });
+        return res.status(400).json({
+          message: "Các trường tiêu đề, nội dung, và đường dẫn là bắt buộc",
+        });
       }
       const existingArticle = await Article.findOne({ where: { slug } });
       if (existingArticle) {
@@ -363,7 +381,7 @@ class ArticleController {
             __dirname,
             "..",
             "..",
-            article.image_url,
+            article.image_url
           );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
@@ -442,7 +460,7 @@ class ArticleController {
             __dirname,
             "..",
             "..",
-            article.image_url,
+            article.image_url
           );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);

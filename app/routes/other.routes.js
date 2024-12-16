@@ -19,6 +19,6 @@ router.get('/articles_following', authenticateToken, ortherController.getArticle
 router.get('/articles_categories', ortherController.getArticlesByCategorySlug);
 router.get('/statistics', ortherController.statistics);
 router.get('/statistics/user', authenticateToken, ortherController.statisticsUser);
-
+router.get('/articles_recommend', authenticateToken, ortherController.getArticlesRecomend);
 
 module.exports = router;

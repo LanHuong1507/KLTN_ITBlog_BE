@@ -13,6 +13,10 @@ const ReadingList = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    article_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -21,7 +25,7 @@ const ReadingList = sequelize.define(
   {
     tableName: "reading_lists",
     timestamps: true,
-  },
+  }
 );
 
 module.exports = ReadingList;
