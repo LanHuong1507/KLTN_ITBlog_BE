@@ -5,6 +5,7 @@ const Comment = require("../models/comment.model.js");
 const Notification = require("../models/notification.model.js");
 const ArticleCategory = require("../models/article_category.model.js");
 const Category = require("../models/category.model.js");
+const ReadingList = require('../models/reading_list.model.js');
 const { Op, where } = require("sequelize");
 const path = require("path");
 const fs = require("fs");
